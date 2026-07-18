@@ -1,0 +1,25 @@
+# Normalize line endings. Text files are stored with LF in the repository and checked out
+# with the platform-native ending, so contributors on Windows, macOS, and Linux stay consistent.
+* text=auto
+
+# Windows-oriented scripts check out as CRLF.
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Cross-platform text stays LF on checkout.
+*.sh text eol=lf
+
+# Treat generated lock files as text but keep diffs quiet.
+package-lock.json text -diff
+*.lock.json text -diff
+
+# Binary assets are never line-ending normalized.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.webm binary
+*.trx binary

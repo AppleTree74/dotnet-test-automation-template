@@ -1,0 +1,17 @@
+{
+  "name": "automation-template-reporting",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Allure Report 3 tooling for the .NET test automation template.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "allure:generate": "allure generate allure-results",
+    "allure:open": "allure open allure-report",
+    "allure:serve": "allure serve allure-results"
+  },
+  "devDependencies": {
+    "allure": "3.14.3"
+  }
+}

@@ -1,0 +1,227 @@
+# Manual test run + Allure Report 3 publishing.
+# Pin actions to reviewed major versions or immutable commit SHAs per repository policy.
+name: test-and-report
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner image
+        type: choice
+        options: [ubuntu-24.04, windows-2025]
+        default: ubuntu-24.04
+      browser:
+        description: Browser
+        type: choice
+        options: [chromium, firefox, webkit, all]
+        default: chromium
+      type:
+        description: Test type
+        type: choice
+        options: [ui, api, database, e2e, all]
+        default: all
+      suite:
+        description: Suite
+        type: choice
+        options: [smoke, regression, all]
+        default: smoke
+      tags:
+        description: Comma-separated category tags (validated)
+        type: string
+        default: ""
+      parallelism:
+        description: Worker count
+        type: choice
+        options: ["1", "2", "4", "8"]
+        default: "4"
+
+  # Enable only after choosing and documenting the schedule and timezone.
+  # GitHub cron is UTC and does not accept an IANA timezone. A scheduled run uses one browser
+  # (Chromium) and the same validated command path as manual runs.
+  # schedule:
+  #   - cron: "0 18 * * 1-5" # EXAMPLE ONLY; UTC
+
+permissions:
+  contents: read
+
+# Serialize runs so Pages deployment and history updates never race.
+concurrency:
+  group: test-and-report-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ${{ inputs.runner }}
+    environment: Test
+    outputs:
+      failed: ${{ steps.run.outputs.failed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET (from global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore (locked mode)
+        run: dotnet restore AutomationTemplate.slnx --locked-mode
+
+      - name: Build Release
+        run: dotnet build AutomationTemplate.slnx -c Release --no-restore
+
+      - name: Install Playwright browsers (only when the type needs them)
+        if: ${{ inputs.type == 'ui' || inputs.type == 'e2e' || inputs.type == 'all' }}
+        shell: pwsh
+        run: |
+          if ('${{ inputs.runner }}' -like 'ubuntu*') {
+            pwsh ./scripts/Install-Playwright.ps1 -Browser '${{ inputs.browser }}' -WithDeps
+          } else {
+            pwsh ./scripts/Install-Playwright.ps1 -Browser '${{ inputs.browser }}'
+          }
+
+      - name: Run tests (exit status is authoritative)
+        id: run
+        shell: pwsh
+        env:
+          AUTOMATION__Api__BearerToken: ${{ secrets.API_BEARER_TOKEN }}
+          AUTOMATION__SqlServer__ConnectionString: ${{ secrets.SQL_CONNECTION_STRING }}
+          AUTOMATION__Browser__BaseUrl: ${{ vars.WEB_BASE_URL }}
+          AUTOMATION__Api__BaseUrl: ${{ vars.API_BASE_URL }}
+        run: |
+          $type = (Get-Culture).TextInfo.ToTitleCase('${{ inputs.type }}')
+          if ('${{ inputs.type }}' -eq 'ui') { $type = 'UI' }
+          if ('${{ inputs.type }}' -eq 'e2e') { $type = 'E2E' }
+          if ('${{ inputs.type }}' -eq 'api') { $type = 'API' }
+          if ('${{ inputs.type }}' -eq 'all') { $type = 'All' }
+          $suite = (Get-Culture).TextInfo.ToTitleCase('${{ inputs.suite }}')
+          pwsh ./scripts/Invoke-Tests.ps1 -Type $type -Suite $suite -Browser '${{ inputs.browser }}' -Workers '${{ inputs.parallelism }}' -Tags '${{ inputs.tags }}'
+          $code = $LASTEXITCODE
+          if ($code -ne 0) { "failed=true" >> $env:GITHUB_OUTPUT } else { "failed=false" >> $env:GITHUB_OUTPUT }
+          exit 0
+
+      - name: Upload raw diagnostics (always)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostics-${{ github.run_id }}
+          path: |
+            artifacts/**
+            allure-results/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Allure results for reporting (always)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ github.run_id }}
+          path: allure-results/**
+          if-no-files-found: warn
+          retention-days: 3
+
+  report:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # push durable history to the history branch
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-${{ github.run_id }}
+          path: allure-results
+        continue-on-error: true
+
+      - name: Stop if no results
+        id: guard
+        shell: bash
+        run: |
+          if [ -d allure-results ] && [ -n "$(ls -A allure-results 2>/dev/null)" ]; then
+            echo "have_results=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_results=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore durable history
+        if: ${{ steps.guard.outputs.have_results == 'true' }}
+        shell: bash
+        run: |
+          mkdir -p allure-history
+          if git ls-remote --exit-code --heads origin allure-history >/dev/null 2>&1; then
+            git fetch origin allure-history
+            git show origin/allure-history:history.jsonl > allure-history/history.jsonl 2>/dev/null || true
+          fi
+
+      - name: Set up Node (from .nvmrc)
+        if: ${{ steps.guard.outputs.have_results == 'true' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Generate Allure Report 3
+        if: ${{ steps.guard.outputs.have_results == 'true' }}
+        run: |
+          npm ci
+          npx allure generate allure-results
+
+      - name: Persist durable history
+        if: ${{ steps.guard.outputs.have_results == 'true' }}
+        shell: bash
+        run: |
+          if [ ! -f allure-history/history.jsonl ]; then exit 0; fi
+          tmp="$(mktemp -d)"
+          cp allure-history/history.jsonl "$tmp/history.jsonl"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin allure-history || true
+          if git show-ref --verify --quiet refs/remotes/origin/allure-history; then
+            git checkout allure-history
+          else
+            git checkout --orphan allure-history
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+          cp "$tmp/history.jsonl" history.jsonl
+          git add history.jsonl
+          git commit -m "Update Allure history (run ${{ github.run_id }})" || echo "No history changes."
+          git push origin HEAD:allure-history
+
+      - name: Upload Pages artifact
+        if: ${{ steps.guard.outputs.have_results == 'true' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: allure-report
+
+  deploy:
+    needs: report
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+  verdict:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Reflect the original test result
+        shell: bash
+        run: |
+          if [ "${{ needs.test.outputs.failed }}" = "true" ]; then
+            echo "Tests failed; reporting ran but the run is marked failed."
+            exit 1
+          fi
+          echo "Tests passed."

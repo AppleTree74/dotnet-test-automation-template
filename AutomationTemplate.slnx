@@ -1,0 +1,21 @@
+<Solution>
+  <Folder Name="/solution/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path=".editorconfig" />
+    <File Path="AGENTS.md" />
+    <File Path="CLAUDE.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Automation.Core/Automation.Core.csproj" />
+    <Project Path="src/Automation.Browser/Automation.Browser.csproj" />
+    <Project Path="src/Automation.Api/Automation.Api.csproj" />
+    <Project Path="src/Automation.SqlServer/Automation.SqlServer.csproj" />
+    <Project Path="src/Application.Automation/Application.Automation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Automation.UnitTests/Automation.UnitTests.csproj" />
+    <Project Path="tests/Application.Tests/Application.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,40 @@
+<Project>
+
+  <!--
+    Shared MSBuild settings for every project in the template.
+    Framework mechanics live under src/Automation.*; product automation under
+    src/Application.Automation; NUnit intent under tests/Application.Tests.
+    See docs/architecture.md.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Correctness gates required by AI_IMPLEMENTATION_GUIDE.md section 16. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Code style (IDExxxx) is enforced by `dotnet format` in scripts/CI, not the -->
+    <!-- compiler, so a formatting nit never masquerades as a compile error.        -->
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+
+    <!-- Deterministic, reproducible builds. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <!-- Central package management with committed lock files for locked-mode restore. -->
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+
+    <!-- Template metadata. Generated repositories overwrite this via docs/upgrade-guide.md. -->
+    <TemplateVersion>0.1.0</TemplateVersion>
+
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn)</NoWarn>
+  </PropertyGroup>
+
+</Project>

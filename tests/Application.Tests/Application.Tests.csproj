@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Application.Tests</RootNamespace>
+    <AssemblyName>Application.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- NUnit parallelism is configured via [assembly: Parallelizable] in AssemblyHooks.cs. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="Microsoft.Playwright.NUnit" />
+    <PackageReference Include="Allure.NUnit" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Automation.Core\Automation.Core.csproj" />
+    <ProjectReference Include="..\..\src\Automation.Browser\Automation.Browser.csproj" />
+    <ProjectReference Include="..\..\src\Automation.Api\Automation.Api.csproj" />
+    <ProjectReference Include="..\..\src\Automation.SqlServer\Automation.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\Application.Automation\Application.Automation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="allureConfig.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

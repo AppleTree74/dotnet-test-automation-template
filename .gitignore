@@ -1,0 +1,46 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.user
+
+# .NET
+*.dll
+*.pdb
+project.lock.json
+# Keep committed NuGet lock files (locked-mode restore).
+!packages.lock.json
+
+# Test / reporting output
+allure-results/
+allure-report/
+allure-history/
+TestResults/
+*.trx
+coverage*.xml
+coverage*.json
+
+# Playwright
+/tests/**/playwright-report/
+/tests/**/.playwright/
+ms-playwright/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Local secrets — never commit
+appsettings.*.local.json
+*.local.env
+.env
+
+# IDE / OS
+.vs/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
