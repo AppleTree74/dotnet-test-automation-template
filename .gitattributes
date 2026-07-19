@@ -1,8 +1,9 @@
-# Normalize line endings. Text files are stored with LF in the repository and checked out
-# with the platform-native ending, so contributors on Windows, macOS, and Linux stay consistent.
-* text=auto
+# Normalize line endings. Text files are stored AND checked out with LF on every platform, so
+# `dotnet format` (which reads .editorconfig end_of_line = lf) is consistent on Windows and the
+# Linux CI runner.
+* text=auto eol=lf
 
-# Windows-oriented scripts check out as CRLF.
+# Windows-oriented scripts check out as CRLF (PowerShell 7 handles either; CI runs pwsh fine).
 *.ps1 text eol=crlf
 *.psm1 text eol=crlf
 *.cmd text eol=crlf
