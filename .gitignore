@@ -3,7 +3,10 @@ bin/
 obj/
 [Dd]ebug/
 [Rr]elease/
-artifacts/
+# Runtime artifacts output — anchored to the repo root so it never matches source
+# folders such as src/Automation.Core/Artifacts/ (Git ignore matching is case-insensitive
+# on Windows/macOS).
+/artifacts/
 *.user
 
 # .NET
@@ -13,10 +16,10 @@ project.lock.json
 # Keep committed NuGet lock files (locked-mode restore).
 !packages.lock.json
 
-# Test / reporting output
-allure-results/
-allure-report/
-allure-history/
+# Test / reporting output (top-level, anchored to the repo root)
+/allure-results/
+/allure-report/
+/allure-history/
 TestResults/
 *.trx
 coverage*.xml
