@@ -49,3 +49,20 @@ jobs:
       - name: Validate template tokens and categories
         shell: pwsh
         run: pwsh ./scripts/Validate-Template.ps1
+
+  template-generation:
+    # Generates a repository from the template and validates it end to end (restore, build, format,
+    # unit tests, generated-repository validation). Guards template-generation regressions (P1-01).
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET (from global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Generate a repository from the template and validate it
+        shell: pwsh
+        run: pwsh ./scripts/Test-TemplateGeneration.ps1

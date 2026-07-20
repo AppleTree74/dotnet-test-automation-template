@@ -21,15 +21,28 @@ function Add-Error([string]$message) { $script:errors.Add($message) }
 
 # 1) Required files exist.
 $required = @(
-    'global.json', 'Directory.Build.props', 'Directory.Packages.props', 'AutomationTemplate.slnx',
+    'global.json', 'Directory.Build.props', 'Directory.Packages.props',
     'AGENTS.md', 'CLAUDE.md', 'package.json', 'package-lock.json', 'allurerc.mjs',
-    '.template.config/template.json',
     '.github/workflows/validate.yml', '.github/workflows/test-and-report.yml',
     'scripts/Invoke-Tests.ps1', 'scripts/Install-Playwright.ps1', 'scripts/Generate-Allure.ps1',
     'docs/architecture.md', 'docs/configuration.md', 'docs/test-standards.md', 'docs/debugging.md'
 )
 foreach ($rel in $required) {
     if (-not (Test-Path (Join-Path $repoRoot $rel))) { Add-Error "Missing required file: $rel" }
+}
+
+# The solution file is checked by glob because its name changes when the template is generated
+# (e.g. AutomationTemplate.slnx -> Contoso.Shop.slnx).
+if (-not (Get-ChildItem -Path $repoRoot -Filter '*.slnx' -File -ErrorAction SilentlyContinue)) {
+    Add-Error "No .slnx solution file found."
+}
+
+# Template-authoring metadata exists only in the source template; `dotnet new` strips it from a
+# generated repository. Require template.json only when the .template.config directory is present,
+# so the same validator passes in both the source template and a generated solution.
+$templateConfigDir = Join-Path $repoRoot '.template.config'
+if ((Test-Path $templateConfigDir) -and -not (Test-Path (Join-Path $templateConfigDir 'template.json'))) {
+    Add-Error "Missing required file: .template.config/template.json"
 }
 
 # 2) Test taxonomy: any file with a [Test] must declare a type and a suite (class- or method-level).

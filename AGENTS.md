@@ -82,9 +82,11 @@ dotnet restore AutomationTemplate.slnx --locked-mode
 dotnet build AutomationTemplate.slnx -c Release --no-restore
 dotnet format AutomationTemplate.slnx --verify-no-changes --no-restore
 dotnet test tests/Automation.UnitTests/Automation.UnitTests.csproj -c Release --no-build
+pwsh ./scripts/Test-ExitContract.ps1        # authoritative exit-status regression
 pwsh ./scripts/Install-Playwright.ps1 -Browser chromium
 pwsh ./scripts/Generate-Allure.ps1
 pwsh ./scripts/Validate-Template.ps1
+pwsh ./scripts/Test-TemplateGeneration.ps1  # generate a repo and validate it end to end
 ```
 
 ## Change workflow
