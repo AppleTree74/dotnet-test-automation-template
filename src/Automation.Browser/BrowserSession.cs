@@ -1,9 +1,8 @@
 using System.Collections.Concurrent;
-using System.Text;
-using System.Text.Json;
 using Automation.Browser.Evidence;
 using Automation.Core.Artifacts;
 using Automation.Core.Configuration;
+using Automation.Core.Redaction;
 using Microsoft.Extensions.Logging;
 using Microsoft.Playwright;
 
@@ -18,17 +17,19 @@ public sealed class BrowserSession : IAsyncDisposable
 {
     private readonly IBrowserContext _context;
     private readonly BrowserOptions _options;
+    private readonly IRedactor _redactor;
     private readonly ILogger _logger;
     private readonly string _testDirectory;
     private readonly ConcurrentQueue<ConsoleMessageRecord> _console = new();
     private bool _tracingStarted;
     private bool _evidenceCaptured;
 
-    private BrowserSession(IBrowserContext context, IPage page, BrowserOptions options, string testDirectory, ILogger logger)
+    private BrowserSession(IBrowserContext context, IPage page, BrowserOptions options, IRedactor redactor, string testDirectory, ILogger logger)
     {
         _context = context;
         Page = page;
         _options = options;
+        _redactor = redactor;
         _testDirectory = testDirectory;
         _logger = logger;
     }
@@ -39,6 +40,7 @@ public sealed class BrowserSession : IAsyncDisposable
     internal static async Task<BrowserSession> CreateAsync(
         IBrowser browser,
         BrowserOptions options,
+        IRedactor redactor,
         string testDirectory,
         ILogger logger,
         CancellationToken cancellationToken = default)
@@ -65,7 +67,7 @@ public sealed class BrowserSession : IAsyncDisposable
         context.SetDefaultNavigationTimeout(options.NavigationTimeoutMs);
         context.SetDefaultTimeout(options.ActionTimeoutMs);
 
-        var session = new BrowserSessionBuilder(context, options, testDirectory, logger);
+        var session = new BrowserSessionBuilder(context, options, redactor, testDirectory, logger);
         return await session.BuildAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -91,15 +93,22 @@ public sealed class BrowserSession : IAsyncDisposable
             }).ConfigureAwait(false);
         }).ConfigureAwait(false);
 
-        await TryCaptureAsync("page-html", async () =>
+        if (_options.CapturePageHtml)
         {
-            string html = await Page.ContentAsync().ConfigureAwait(false);
-            await File.WriteAllTextAsync(Path.Combine(_testDirectory, ArtifactNames.PageHtml), html).ConfigureAwait(false);
-        }).ConfigureAwait(false);
+            await TryCaptureAsync("page-html", async () =>
+            {
+                string html = await Page.ContentAsync().ConfigureAwait(false);
+                await File.WriteAllTextAsync(
+                    Path.Combine(_testDirectory, ArtifactNames.PageHtml),
+                    BrowserEvidence.RedactHtml(_redactor, html)).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        }
 
         await TryCaptureAsync("current-url", async () =>
         {
-            await File.WriteAllTextAsync(Path.Combine(_testDirectory, "current-url.txt"), Page.Url).ConfigureAwait(false);
+            await File.WriteAllTextAsync(
+                Path.Combine(_testDirectory, "current-url.txt"),
+                _redactor.RedactUrl(Page.Url)).ConfigureAwait(false);
         }).ConfigureAwait(false);
 
         await WriteConsoleAsync(errorsOnly: false).ConfigureAwait(false);
@@ -172,15 +181,9 @@ public sealed class BrowserSession : IAsyncDisposable
             return;
         }
 
-        var builder = new StringBuilder();
-        foreach (ConsoleMessageRecord record in lines)
-        {
-            builder.AppendLine(JsonSerializer.Serialize(record));
-        }
-
         await File.WriteAllTextAsync(
             Path.Combine(_testDirectory, ArtifactNames.BrowserConsole),
-            builder.ToString()).ConfigureAwait(false);
+            BrowserEvidence.SerializeConsole(_redactor, lines)).ConfigureAwait(false);
     }
 
     private async Task TryCaptureAsync(string name, Func<Task> capture)
@@ -217,13 +220,15 @@ public sealed class BrowserSession : IAsyncDisposable
     {
         private readonly IBrowserContext _context;
         private readonly BrowserOptions _options;
+        private readonly IRedactor _redactor;
         private readonly string _testDirectory;
         private readonly ILogger _logger;
 
-        public BrowserSessionBuilder(IBrowserContext context, BrowserOptions options, string testDirectory, ILogger logger)
+        public BrowserSessionBuilder(IBrowserContext context, BrowserOptions options, IRedactor redactor, string testDirectory, ILogger logger)
         {
             _context = context;
             _options = options;
+            _redactor = redactor;
             _testDirectory = testDirectory;
             _logger = logger;
         }
@@ -231,7 +236,7 @@ public sealed class BrowserSession : IAsyncDisposable
         public async Task<BrowserSession> BuildAsync(CancellationToken cancellationToken)
         {
             IPage page = await _context.NewPageAsync().ConfigureAwait(false);
-            var session = new BrowserSession(_context, page, _options, _testDirectory, _logger);
+            var session = new BrowserSession(_context, page, _options, _redactor, _testDirectory, _logger);
             page.Console += (_, message) => session.OnConsoleMessage(message);
             page.PageError += (_, error) => session.OnPageError(error);
             await session.StartTracingAsync(cancellationToken).ConfigureAwait(false);

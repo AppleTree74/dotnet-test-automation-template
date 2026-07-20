@@ -41,6 +41,12 @@ public sealed class BrowserOptions
 
     public bool CaptureHar { get; init; }
 
+    /// <summary>
+    /// Capture page HTML on failure (redacted and size-bounded). On by default; set false for
+    /// applications whose DOM may hold sensitive data that pattern-based redaction cannot remove.
+    /// </summary>
+    public bool CapturePageHtml { get; init; } = true;
+
     /// <summary>Returns true when the configured base URL is still a template placeholder.</summary>
     public bool IsPlaceholder() =>
         BaseUrl.Contains(".invalid", StringComparison.OrdinalIgnoreCase);

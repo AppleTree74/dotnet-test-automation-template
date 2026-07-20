@@ -21,7 +21,7 @@ values are supplied.
 | Section | Type | Notes |
 |---|---|---|
 | `TestEnvironment` | `TestEnvironmentOptions` | Fixed name `Test`. |
-| `Browser` | `BrowserOptions` | Base URL, default browser, headless, timeouts, video/HAR opt-in. |
+| `Browser` | `BrowserOptions` | Base URL, default browser, headless, timeouts, video/HAR opt-in, `CapturePageHtml` (redacted page-HTML capture on failure; default on). |
 | `Api` | `ApiOptions` | Base URL, timeout, bearer token (secret). |
 | `SqlServer` | `SqlServerOptions` | Connection string (secret), command timeout, ReadOnly intent. |
 | `Artifacts` | `ArtifactOptions` | Artifact root and Allure results directory name. |

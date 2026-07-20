@@ -38,6 +38,24 @@ allure-report/             # generated HTML report (npm run allure:generate)
 allure-history/history.jsonl  # durable single-file history
 ```
 
+## Sensitive data in evidence
+
+Redaction runs before evidence is written and attached (guide section 7.3):
+
+- **Current URL** and **browser console** (`browser-console.jsonl`) — sanitized via the central
+  redactor (bearer tokens, secret query parameters, connection strings, configured secret keys).
+- **Page HTML** (`page.html`) — captured only when `Browser:CapturePageHtml` is true (the default),
+  with pattern-based redaction and a size bound. This is best-effort: it masks known secret
+  patterns but cannot guarantee removal of arbitrary sensitive DOM content. Set
+  `Browser:CapturePageHtml=false` for applications whose DOM may hold sensitive data.
+- **Screenshots** (`screenshot.png`) — **cannot be redacted automatically**. A full-page screenshot
+  may show secrets, tokens, or personal data rendered on the page. Treat screenshots as potentially
+  sensitive; if that is unacceptable for an application, run headless with masked test data or gate
+  the failing flows so secrets are never rendered.
+
+Add secret-field names to `Redaction:SecretFieldNames` so product-specific fields are masked in URL,
+console, HTML, and API/SQL evidence.
+
 ## Playwright traces
 
 Open a captured trace locally:
