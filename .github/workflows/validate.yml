@@ -42,6 +42,10 @@ jobs:
       - name: Discover NUnit tests
         run: dotnet test tests/Application.Tests/Application.Tests.csproj -c Release --no-build --list-tests
 
+      - name: Verify authoritative exit-status contract
+        shell: pwsh
+        run: pwsh ./scripts/Test-ExitContract.ps1
+
       - name: Validate template tokens and categories
         shell: pwsh
         run: pwsh ./scripts/Validate-Template.ps1

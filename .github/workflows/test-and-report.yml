@@ -91,6 +91,9 @@ jobs:
           # repository/environment variables) take precedence.
           AUTOMATION__Browser__BaseUrl: ${{ vars.WEB_BASE_URL || 'https://test.example.invalid' }}
           AUTOMATION__Api__BaseUrl: ${{ vars.API_BASE_URL || 'https://api.test.example.invalid' }}
+          # Free-text input is passed as data via the environment, never interpolated into the
+          # PowerShell source below (the script allowlist then validates it as defense in depth).
+          INPUT_TAGS: ${{ inputs.tags }}
         run: |
           $type = (Get-Culture).TextInfo.ToTitleCase('${{ inputs.type }}')
           if ('${{ inputs.type }}' -eq 'ui') { $type = 'UI' }
@@ -98,7 +101,7 @@ jobs:
           if ('${{ inputs.type }}' -eq 'api') { $type = 'API' }
           if ('${{ inputs.type }}' -eq 'all') { $type = 'All' }
           $suite = (Get-Culture).TextInfo.ToTitleCase('${{ inputs.suite }}')
-          pwsh ./scripts/Invoke-Tests.ps1 -Type $type -Suite $suite -Browser '${{ inputs.browser }}' -Workers '${{ inputs.parallelism }}' -Tags '${{ inputs.tags }}'
+          pwsh ./scripts/Invoke-Tests.ps1 -Type $type -Suite $suite -Browser '${{ inputs.browser }}' -Workers '${{ inputs.parallelism }}' -Tags $env:INPUT_TAGS
           $code = $LASTEXITCODE
           if ($code -ne 0) { "failed=true" >> $env:GITHUB_OUTPUT } else { "failed=false" >> $env:GITHUB_OUTPUT }
           # Fail the job honestly on test failure. The always() upload steps below still run, and

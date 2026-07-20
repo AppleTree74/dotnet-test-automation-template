@@ -101,11 +101,15 @@ function Invoke-SingleBrowser {
     # Runsettings passed after '--' control NUnit's worker count.
     $arguments += @('--', "NUnit.NumberOfTestWorkers=$Workers")
 
-    & dotnet @arguments
+    # Pipe dotnet's output to the host so it stays visible in terminals and CI logs but does NOT
+    # become part of this function's return value. Returning the exit code as the only pipeline
+    # output keeps the caller's $code a single integer, so a failing run propagates a non-zero
+    # process exit code (the original test status is authoritative).
+    & dotnet @arguments | Out-Host
     $exitCode = $LASTEXITCODE
 
     Write-Host "== Run $runId finished with exit code $exitCode ==" -ForegroundColor Cyan
-    return $exitCode
+    return [int]$exitCode
 }
 
 $browsers = if ($Browser -eq 'all') { @('chromium', 'firefox', 'webkit') } else { @($Browser) }
