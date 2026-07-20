@@ -14,7 +14,10 @@ public sealed class ArtifactOptions
     [Required]
     public string RootDirectory { get; init; } = "artifacts";
 
-    /// <summary>Directory (under the run root) that Allure results are written to.</summary>
+    /// <summary>
+    /// Name of the top-level Allure results directory (at the repository root, not nested under the
+    /// run), cleaned before each run. See ADR 0001.
+    /// </summary>
     [Required]
     public string AllureResultsDirectoryName { get; init; } = "allure-results";
 }

@@ -35,6 +35,7 @@ node_modules/
 npm-debug.log*
 
 # Local secrets — never commit
+appsettings.local.json
 appsettings.*.local.json
 *.local.env
 .env

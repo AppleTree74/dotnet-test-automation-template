@@ -56,7 +56,7 @@ public abstract class AutomationTestBase
         // Distinguish browsers in the aggregated multi-browser report.
         if (usesBrowser)
         {
-            AllureEvidence.SetBrowserParameter(Identity.Browser);
+            AllureEvidence.SetBrowserParameter(Identity.Browser, Logger);
         }
 
         Logger.LogInformation("Starting {Test} ({Type}) as {TestId}.", test.FullName, type, Identity.TestId);
@@ -82,7 +82,7 @@ public abstract class AutomationTestBase
             Identity.FullyQualifiedName,
             TestContext.CurrentContext.Result.Outcome.Status);
 
-        AllureEvidence.AttachDirectory(TestArtifactDirectory);
+        AllureEvidence.AttachDirectory(TestArtifactDirectory, Logger);
 
         _logScope?.Dispose();
         _logScope = null;

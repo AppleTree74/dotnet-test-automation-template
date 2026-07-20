@@ -8,9 +8,11 @@ secrets vary per generated application.
 Lowest to highest:
 
 1. committed non-secret `tests/Application.Tests/appsettings.json`
-2. local .NET user-secrets (developer machines)
-3. environment variables prefixed `AUTOMATION__` (GitHub Environment values/secrets map here)
-4. validated command inputs
+2. local `appsettings.local.json` (uncommitted per-developer overrides; Git-ignored — non-secret
+   local settings only, never secrets)
+3. local .NET user-secrets (developer machines; the place for local secrets)
+4. environment variables prefixed `AUTOMATION__` (GitHub Environment values/secrets map here)
+5. validated command inputs
 
 All strongly typed options are validated before the first test (`OptionsValidation`). Placeholder
 `*.invalid` URLs are allowed; sample integration tests skip with an explicit reason until real
