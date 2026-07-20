@@ -114,6 +114,13 @@ function Invoke-SingleBrowser {
 
 $browsers = if ($Browser -eq 'all') { @('chromium', 'firefox', 'webkit') } else { @($Browser) }
 
+# Clean Allure results once before the (possibly multi-browser) launch, then let every browser's
+# results accumulate into the one report. TestRun honours AUTOMATION_KEEP_ALLURE_RESULTS and does
+# not re-clean per launch, so a `-Browser all` run keeps chromium, firefox, and webkit results.
+$allureResults = Join-Path $repoRoot 'allure-results'
+if (Test-Path $allureResults) { Remove-Item -Recurse -Force $allureResults }
+$env:AUTOMATION_KEEP_ALLURE_RESULTS = '1'
+
 $overall = 0
 foreach ($b in $browsers) {
     $code = Invoke-SingleBrowser -BrowserName $b

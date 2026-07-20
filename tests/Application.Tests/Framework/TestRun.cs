@@ -58,14 +58,20 @@ public static class TestRun
         Paths = _services.GetRequiredService<ArtifactPaths>();
         SelectedBrowser = ResolveBrowser(_services.GetRequiredService<BrowserOptions>());
 
-        // Clean Allure results before this independent launch (guide section 14).
-        if (Directory.Exists(Paths.AllureResultsDirectory))
+        // Clean Allure results before this independent launch (guide section 14). When a launcher
+        // runs several browsers into one report (scripts/Invoke-Tests.ps1 -Browser all), it cleans
+        // once up front and sets AUTOMATION_KEEP_ALLURE_RESULTS so each browser's results accumulate
+        // instead of the next launch deleting the previous browser's results.
+        if (!KeepAllureResults() && Directory.Exists(Paths.AllureResultsDirectory))
         {
             Directory.Delete(Paths.AllureResultsDirectory, recursive: true);
         }
 
         Paths.EnsureRunDirectories();
     }
+
+    private static bool KeepAllureResults() =>
+        string.Equals(Environment.GetEnvironmentVariable("AUTOMATION_KEEP_ALLURE_RESULTS"), "1", StringComparison.Ordinal);
 
     public static void RecordOutcome(bool passed)
     {

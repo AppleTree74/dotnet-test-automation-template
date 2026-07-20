@@ -27,4 +27,25 @@ public static class AllureEvidence
             }
         }
     }
+
+    /// <summary>
+    /// Records the browser as a test parameter so that a multi-browser run (`-Browser all`) yields
+    /// distinct, comparable results per browser in the one aggregated report.
+    /// </summary>
+    public static void SetBrowserParameter(string browser)
+    {
+        if (string.IsNullOrWhiteSpace(browser))
+        {
+            return;
+        }
+
+        try
+        {
+            AllureApi.AddTestParameter("browser", browser);
+        }
+        catch (Exception)
+        {
+            // Parameter tagging is best-effort; never fail a test because of Allure metadata.
+        }
+    }
 }

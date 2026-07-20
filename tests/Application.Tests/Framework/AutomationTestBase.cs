@@ -53,6 +53,12 @@ public abstract class AutomationTestBase
         Logger = Services.GetRequiredService<ILoggerFactory>().CreateLogger(test.Name);
         _logScope = AutomationLogging.BeginTestScope(Logger, TestRun.Run, Identity, TestArtifactDirectory);
 
+        // Distinguish browsers in the aggregated multi-browser report.
+        if (usesBrowser)
+        {
+            AllureEvidence.SetBrowserParameter(Identity.Browser);
+        }
+
         Logger.LogInformation("Starting {Test} ({Type}) as {TestId}.", test.FullName, type, Identity.TestId);
     }
 
