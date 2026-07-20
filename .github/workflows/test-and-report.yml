@@ -36,8 +36,9 @@ on:
         default: "4"
 
   # Enable only after choosing and documenting the schedule and timezone.
-  # GitHub cron is UTC and does not accept an IANA timezone. A scheduled run uses one browser
-  # (Chromium) and the same validated command path as manual runs.
+  # GitHub cron is UTC and does not accept an IANA timezone. The test job resolves each input with
+  # a default (below), so uncommenting this schedule produces a working Chromium + Smoke run on
+  # Ubuntu with no further changes — the same validated command path as manual runs.
   # schedule:
   #   - cron: "0 18 * * 1-5" # EXAMPLE ONLY; UTC
 
@@ -51,8 +52,16 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ${{ inputs.runner }}
+    # Fall back to defaults so the workflow also runs on the (disabled) schedule event, where the
+    # workflow_dispatch inputs do not exist. A scheduled run uses Chromium + Smoke on Ubuntu.
+    runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
     environment: Test
+    env:
+      RUN_RUNNER: ${{ inputs.runner || 'ubuntu-24.04' }}
+      RUN_BROWSER: ${{ inputs.browser || 'chromium' }}
+      RUN_TYPE: ${{ inputs.type || 'all' }}
+      RUN_SUITE: ${{ inputs.suite || 'smoke' }}
+      RUN_PARALLELISM: ${{ inputs.parallelism || '4' }}
     outputs:
       failed: ${{ steps.run.outputs.failed }}
     steps:
@@ -71,13 +80,13 @@ jobs:
         run: dotnet build AutomationTemplate.slnx -c Release --no-restore
 
       - name: Install Playwright browsers (only when the type needs them)
-        if: ${{ inputs.type == 'ui' || inputs.type == 'e2e' || inputs.type == 'all' }}
+        if: ${{ env.RUN_TYPE == 'ui' || env.RUN_TYPE == 'e2e' || env.RUN_TYPE == 'all' }}
         shell: pwsh
         run: |
-          if ('${{ inputs.runner }}' -like 'ubuntu*') {
-            pwsh ./scripts/Install-Playwright.ps1 -Browser '${{ inputs.browser }}' -WithDeps
+          if ($env:RUN_RUNNER -like 'ubuntu*') {
+            pwsh ./scripts/Install-Playwright.ps1 -Browser $env:RUN_BROWSER -WithDeps
           } else {
-            pwsh ./scripts/Install-Playwright.ps1 -Browser '${{ inputs.browser }}'
+            pwsh ./scripts/Install-Playwright.ps1 -Browser $env:RUN_BROWSER
           }
 
       - name: Run tests (exit status is authoritative)
@@ -95,13 +104,9 @@ jobs:
           # PowerShell source below (the script allowlist then validates it as defense in depth).
           INPUT_TAGS: ${{ inputs.tags }}
         run: |
-          $type = (Get-Culture).TextInfo.ToTitleCase('${{ inputs.type }}')
-          if ('${{ inputs.type }}' -eq 'ui') { $type = 'UI' }
-          if ('${{ inputs.type }}' -eq 'e2e') { $type = 'E2E' }
-          if ('${{ inputs.type }}' -eq 'api') { $type = 'API' }
-          if ('${{ inputs.type }}' -eq 'all') { $type = 'All' }
-          $suite = (Get-Culture).TextInfo.ToTitleCase('${{ inputs.suite }}')
-          pwsh ./scripts/Invoke-Tests.ps1 -Type $type -Suite $suite -Browser '${{ inputs.browser }}' -Workers '${{ inputs.parallelism }}' -Tags $env:INPUT_TAGS
+          $type = switch ($env:RUN_TYPE) { 'ui' { 'UI' } 'api' { 'API' } 'database' { 'Database' } 'e2e' { 'E2E' } default { 'All' } }
+          $suite = switch ($env:RUN_SUITE) { 'regression' { 'Regression' } 'all' { 'All' } default { 'Smoke' } }
+          pwsh ./scripts/Invoke-Tests.ps1 -Type $type -Suite $suite -Browser $env:RUN_BROWSER -Workers $env:RUN_PARALLELISM -Tags $env:INPUT_TAGS
           $code = $LASTEXITCODE
           if ($code -ne 0) { "failed=true" >> $env:GITHUB_OUTPUT } else { "failed=false" >> $env:GITHUB_OUTPUT }
           # Fail the job honestly on test failure. The always() upload steps below still run, and
@@ -134,6 +139,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write # push durable history to the history branch
+    outputs:
+      have_results: ${{ steps.guard.outputs.have_results }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -145,7 +152,7 @@ jobs:
           path: allure-results
         continue-on-error: true
 
-      - name: Stop if no results
+      - name: Detect results
         id: guard
         shell: bash
         run: |
@@ -154,6 +161,14 @@ jobs:
           else
             echo "have_results=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Fail if results were expected but missing
+        # If the tests succeeded, they must have produced Allure results. Missing results then mean
+        # an empty selection or lost artifact — surface it as a failure rather than a silent no-op.
+        if: ${{ needs.test.result == 'success' && steps.guard.outputs.have_results != 'true' }}
+        run: |
+          echo "Tests succeeded but produced no Allure results (empty selection or lost artifact)."
+          exit 1
 
       - name: Restore durable history
         if: ${{ steps.guard.outputs.have_results == 'true' }}
@@ -206,7 +221,9 @@ jobs:
 
   deploy:
     needs: report
-    if: ${{ always() }}
+    # Only deploy when a report was actually produced; a real Pages deployment failure then fails
+    # this job (no continue-on-error) so a broken publish is visible rather than silently tolerated.
+    if: ${{ always() && needs.report.outputs.have_results == 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       pages: write
@@ -218,7 +235,6 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
-        continue-on-error: true
 
   verdict:
     needs: test

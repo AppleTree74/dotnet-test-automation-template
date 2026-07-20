@@ -89,6 +89,25 @@ public sealed class ApiClientTests
     }
 
     [Test]
+    public async Task SendAsync_ReturnsSanitizedTransportDiagnostic_OnHttpRequestException()
+    {
+        var stub = new StubHttpMessageHandler((_, _) =>
+            throw new HttpRequestException(HttpRequestError.NameResolutionError, "No such host is known (api.test.example.invalid:443)."));
+        ApiClient client = CreateClient(stub);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/items", UriKind.Relative));
+        ApiResponse<Sample> response = await client.SendAsync<Sample>(request);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.IsSuccess, Is.False);
+            Assert.That((int)response.StatusCode, Is.EqualTo(0));
+            Assert.That(response.Diagnostics.Error, Does.Contain("Transport failure"));
+            Assert.That(response.Diagnostics.Error, Does.Contain("NameResolutionError"));
+        });
+    }
+
+    [Test]
     public void SendAsync_HonorsCallerCancellation()
     {
         var stub = new StubHttpMessageHandler(async (_, ct) =>

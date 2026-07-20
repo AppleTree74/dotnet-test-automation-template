@@ -25,7 +25,10 @@ public abstract class ApiTestBase : AutomationTestBase
     [TearDown]
     public async Task ApiTearDown()
     {
-        if (TestFailed && _diagnostics.Count > 0)
+        // Write evidence when the test failed, or whenever any exchange recorded an error
+        // (timeout or transport failure) so those are diagnosable even if the test did not assert.
+        bool hasError = _diagnostics.Exists(d => d.Error is not null);
+        if ((TestFailed || hasError) && _diagnostics.Count > 0)
         {
             await ApiEvidenceWriter.WriteAsync(TestArtifactDirectory, _diagnostics);
         }

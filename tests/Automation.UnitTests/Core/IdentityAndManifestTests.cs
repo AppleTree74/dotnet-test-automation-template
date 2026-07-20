@@ -53,12 +53,20 @@ public sealed class IdentityAndManifestTests
         using JsonDocument document = JsonDocument.Parse(json);
         JsonElement root = document.RootElement;
 
+        JsonElement pathsJson = root.GetProperty("paths");
         Assert.Multiple(() =>
         {
             Assert.That(root.GetProperty("schemaVersion").GetInt32(), Is.EqualTo(1));
             Assert.That(root.GetProperty("runId").GetString(), Is.EqualTo(run.RunId));
             Assert.That(root.GetProperty("result").GetString(), Is.EqualTo("passed"));
-            Assert.That(root.GetProperty("paths").GetProperty("tests").GetString(), Is.Not.Empty);
+
+            // Paths are run-root-relative and portable (no absolute machine path, forward slashes).
+            Assert.That(pathsJson.GetProperty("relativeTo").GetString(), Is.EqualTo("run-root"));
+            Assert.That(pathsJson.GetProperty("tests").GetString(), Is.EqualTo("tests"));
+            Assert.That(pathsJson.GetProperty("trx").GetString(), Is.EqualTo("test-results.trx"));
+            Assert.That(pathsJson.GetProperty("allureResults").GetString(), Is.EqualTo("../../allure-results"));
+            Assert.That(pathsJson.GetProperty("allureResults").GetString(), Does.Not.Contain("\\"));
+            Assert.That(pathsJson.GetProperty("allureResults").GetString(), Does.Not.Contain(":"));
         });
     }
 }

@@ -28,7 +28,7 @@ Do not invent product behavior, URLs, credentials, database details, schedules, 
 
 ## Safety rules
 
-- SQL is query-only. Do not add DML, schema changes, stored-procedure execution, raw `SqlConnection` exposure, or interpolated SQL.
+- SQL is query-only. Do not add DML, schema changes, stored-procedure execution, sequence value generation (`NEXT VALUE FOR`), raw `SqlConnection` exposure, or interpolated SQL.
 - Parameterize every SQL value and use a database identity with only required `SELECT` permissions.
 - Do not commit or log credentials, tokens, cookies, connection strings, or secret payload fields.
 - Redact before data is written to logs or Allure attachments.

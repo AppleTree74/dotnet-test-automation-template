@@ -59,6 +59,13 @@ public static partial class SqlCommandValidator
             throw new UnsafeSqlException("Stored-procedure execution is not permitted.");
         }
 
+        // Reject sequence value generation, which advances database state even though it starts
+        // with SELECT (e.g. SELECT NEXT VALUE FOR dbo.SomeSequence).
+        if (SequenceRegex().IsMatch(withoutTrailing))
+        {
+            throw new UnsafeSqlException("Sequence value generation (NEXT VALUE FOR) changes state and is not permitted.");
+        }
+
         return sql;
     }
 
@@ -152,4 +159,7 @@ public static partial class SqlCommandValidator
 
     [GeneratedRegex(@"\b(sp|xp)_\w+", RegexOptions.IgnoreCase)]
     private static partial Regex ProcTokenRegex();
+
+    [GeneratedRegex(@"\bNEXT\s+VALUE\s+FOR\b", RegexOptions.IgnoreCase)]
+    private static partial Regex SequenceRegex();
 }

@@ -35,6 +35,8 @@ public sealed class SqlCommandValidatorTests
     [TestCase("GRANT SELECT ON dbo.Customers TO someone")]
     [TestCase("DBCC CHECKDB")]
     [TestCase("SELECT * FROM t WAITFOR DELAY '00:00:05'")]
+    [TestCase("SELECT NEXT VALUE FOR dbo.SomeSequence")]
+    [TestCase("SELECT next  value   for dbo.Seq AS n")]
     public void Validate_RejectsUnsafeCommands(string sql)
     {
         Assert.Throws<UnsafeSqlException>(() => SqlCommandValidator.Validate(sql));

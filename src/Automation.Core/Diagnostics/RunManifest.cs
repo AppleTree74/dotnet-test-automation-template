@@ -34,13 +34,21 @@ public sealed record RunManifest
     public RunManifestPaths Paths { get; init; } = new();
 }
 
+/// <summary>
+/// Paths are relative to the run root (this manifest's own directory,
+/// <c>artifacts/&lt;run-id&gt;</c>) with forward slashes, so they stay valid after the artifacts are
+/// downloaded to another machine or opened in a different checkout.
+/// </summary>
 public sealed record RunManifestPaths
 {
-    public string AllureResults { get; init; } = "allure-results";
+    /// <summary>Base the other paths are relative to.</summary>
+    public string RelativeTo { get; init; } = "run-root";
 
-    public string Trx { get; init; } = string.Empty;
+    public string AllureResults { get; init; } = "../../allure-results";
 
-    public string Tests { get; init; } = string.Empty;
+    public string Trx { get; init; } = "test-results.trx";
+
+    public string Tests { get; init; } = "tests";
 }
 
 /// <summary>Writes and reads <see cref="RunManifest"/> documents.</summary>
@@ -71,12 +79,17 @@ public static class RunManifestWriter
             Result = result,
             Paths = new RunManifestPaths
             {
-                AllureResults = paths.AllureResultsDirectory,
-                Trx = paths.TrxPath,
-                Tests = paths.TestsDirectory,
+                RelativeTo = "run-root",
+                AllureResults = RelativeToRunRoot(paths.RunRoot, paths.AllureResultsDirectory),
+                Trx = RelativeToRunRoot(paths.RunRoot, paths.TrxPath),
+                Tests = RelativeToRunRoot(paths.RunRoot, paths.TestsDirectory),
             },
         };
     }
+
+    /// <summary>Returns <paramref name="target"/> relative to the run root, using forward slashes.</summary>
+    private static string RelativeToRunRoot(string runRoot, string target) =>
+        Path.GetRelativePath(runRoot, target).Replace('\\', '/');
 
     public static void Write(string path, RunManifest manifest)
     {

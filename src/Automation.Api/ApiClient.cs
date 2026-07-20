@@ -85,6 +85,14 @@ public sealed class ApiClient : IApiClient
             stopwatch.Stop();
             return TimeoutResponse<T>(request, sanitizedUrl, correlationId, stopwatch.Elapsed.TotalMilliseconds);
         }
+        catch (HttpRequestException ex)
+        {
+            // Transport failures (DNS, connection refused, TLS) never reach an HTTP status. Surface
+            // a sanitized, bounded diagnostic so api-evidence.json is produced instead of an
+            // unhandled exception escaping before any diagnostic is recorded.
+            stopwatch.Stop();
+            return TransportFailureResponse<T>(request, sanitizedUrl, correlationId, stopwatch.Elapsed.TotalMilliseconds, ex);
+        }
     }
 
     private static string EnsureCorrelationId(HttpRequestMessage request)
@@ -169,6 +177,43 @@ public sealed class ApiClient : IApiClient
                 ElapsedMs = elapsedMs,
                 CorrelationId = correlationId,
                 Error = "Request exceeded the configured timeout.",
+            },
+        };
+    }
+
+    private ApiResponse<T> TransportFailureResponse<T>(
+        HttpRequestMessage request,
+        string sanitizedUrl,
+        string correlationId,
+        double elapsedMs,
+        HttpRequestException exception)
+    {
+        string category = exception.HttpRequestError.ToString();
+        string message = _redactor.RedactText(exception.Message);
+        if (message.Length > 512)
+        {
+            message = message[..512] + "…";
+        }
+
+        // Log the category and sanitized message only — never the raw exception object.
+        _logger.LogWarning(
+            "{Method} {Url} failed at transport ({Category}) after {Elapsed:F0} ms.",
+            request.Method.Method,
+            sanitizedUrl,
+            category,
+            elapsedMs);
+
+        return new ApiResponse<T>
+        {
+            StatusCode = (HttpStatusCode)0,
+            Diagnostics = new ApiRequestDiagnostics
+            {
+                Method = request.Method.Method,
+                SanitizedUrl = sanitizedUrl,
+                StatusCode = null,
+                ElapsedMs = elapsedMs,
+                CorrelationId = correlationId,
+                Error = $"Transport failure ({category}): {message}",
             },
         };
     }
