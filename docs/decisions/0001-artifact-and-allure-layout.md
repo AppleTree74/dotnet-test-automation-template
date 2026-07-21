@@ -4,7 +4,7 @@ Status: accepted (2026-07-18)
 
 ## Context
 
-`AI_IMPLEMENTATION_GUIDE.md` section 7.2 shows `allure-results/` nested under
+[`AI_IMPLEMENTATION_GUIDE.md`](../AI_IMPLEMENTATION_GUIDE.md) section 7.2 shows `allure-results/` nested under
 `artifacts/<run-id>/`, while the run-manifest example in section 15.3 references a top-level
 `allure-results` path. Allure's tooling and the durable-history flow in section 14 assume a
 single, stable results directory that is cleaned before each independent launch.

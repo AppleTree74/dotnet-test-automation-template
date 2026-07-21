@@ -45,8 +45,12 @@ $env:MSBUILDTERMINALLOGGER = 'off'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $testProject = Join-Path $repoRoot 'tests/Application.Tests/Application.Tests.csproj'
 
+# Sentinel browser label for browser-free (API/Database) runs. TestRun records it verbatim in the
+# manifest (it is not a parseable BrowserKind, so it surfaces as "not-applicable").
+$NotApplicableBrowser = 'not-applicable'
+
 function New-NUnitFilter {
-    param([string]$Type, [string]$Suite, [string]$Tags, [string]$TestName)
+    param([string]$TypeClause, [string]$Suite, [string]$Tags, [string]$TestName)
 
     if ($TestName) {
         if ($TestName -notmatch '^[A-Za-z0-9_.]+$') {
@@ -56,7 +60,7 @@ function New-NUnitFilter {
     }
 
     $clauses = @()
-    if ($Type -ne 'All') { $clauses += "TestCategory=$Type" }
+    if ($TypeClause) { $clauses += $TypeClause }
     if ($Suite -ne 'All') { $clauses += "TestCategory=$Suite" }
 
     if ($Tags) {
@@ -73,20 +77,73 @@ function New-NUnitFilter {
     return ($clauses -join '&')
 }
 
-function Invoke-SingleBrowser {
-    param([string]$BrowserName)
+# Builds an NUnit type clause for one or more test types, e.g. @('API','Database') ->
+# "(TestCategory=API|TestCategory=Database)". An empty set means "no type restriction".
+function Get-TypeClause {
+    param([string[]]$Types)
+
+    if (-not $Types -or $Types.Count -eq 0) { return '' }
+    $parts = @($Types | ForEach-Object { "TestCategory=$_" })
+    if ($parts.Count -eq 1) { return $parts[0] }
+    return '(' + ($parts -join '|') + ')'
+}
+
+# Composes the set of runs for the selected Type/Browser. Browser-using types (UI, E2E) expand
+# across the browser matrix; browser-free types (API, Database) run exactly once regardless of
+# -Browser, so `-Browser all` no longer repeats them (P2-04). Each run is a hashtable with the
+# target browser label and the NUnit type clause to execute.
+function Get-Runs {
+    if ($TestName) {
+        # A targeted run selects by fully-qualified name; its type/suite are not category-derived.
+        # Browser matters only if the named test is UI/E2E, which is not known here, so keep the
+        # selected browser (never fan out to the whole matrix for a single test).
+        $browser = if ($Browser -eq 'all') { 'chromium' } else { $Browser }
+        return @(@{ Browser = $browser; TypeClause = '' })
+    }
+
+    $matrix = if ($Browser -eq 'all') { @('chromium', 'firefox', 'webkit') } else { @($Browser) }
+
+    switch ($Type) {
+        'API' { return @(@{ Browser = $NotApplicableBrowser; TypeClause = (Get-TypeClause @('API')) }) }
+        'Database' { return @(@{ Browser = $NotApplicableBrowser; TypeClause = (Get-TypeClause @('Database')) }) }
+        'UI' { return @($matrix | ForEach-Object { @{ Browser = $_; TypeClause = (Get-TypeClause @('UI')) } }) }
+        'E2E' { return @($matrix | ForEach-Object { @{ Browser = $_; TypeClause = (Get-TypeClause @('E2E')) } }) }
+        default {
+            # Type = All.
+            if ($Browser -ne 'all') {
+                # One mixed run: API/Database execute once; UI/E2E use the single selected browser.
+                return @(@{ Browser = $Browser; TypeClause = '' })
+            }
+            # Browser = all: run API/Database once (browser-free), then UI/E2E per browser, so the
+            # browser-free suites are not repeated three times.
+            $runs = @(@{ Browser = $NotApplicableBrowser; TypeClause = (Get-TypeClause @('API', 'Database')) })
+            $runs += @($matrix | ForEach-Object { @{ Browser = $_; TypeClause = (Get-TypeClause @('UI', 'E2E')) } })
+            return $runs
+        }
+    }
+}
+
+function Invoke-Run {
+    param([string]$BrowserName, [string]$TypeClause)
 
     $runId = ('{0}Z-{1}' -f (Get-Date -AsUTC -Format 'yyyyMMddTHHmmss'), (Get-Random -Minimum 1000000 -Maximum 9999999))
     $runRoot = Join-Path $repoRoot (Join-Path 'artifacts' $runId)
     New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
 
-    $filter = New-NUnitFilter -Type $Type -Suite $Suite -Tags $Tags -TestName $TestName
+    $filter = New-NUnitFilter -TypeClause $TypeClause -Suite $Suite -Tags $Tags -TestName $TestName
 
     $env:AUTOMATION_RUN_ID = $runId
     $env:AUTOMATION_TYPE = $Type.ToLowerInvariant()
     $env:AUTOMATION_SUITE = $Suite.ToLowerInvariant()
     $env:AUTOMATION_BROWSER = $BrowserName
     $env:AUTOMATION_WORKERS = $Workers
+    # Record targeted selection so the manifest is not mislabelled with the default type/suite (P3-03).
+    if ($TestName) {
+        $env:AUTOMATION_TEST_NAME = $TestName
+    }
+    else {
+        Remove-Item Env:AUTOMATION_TEST_NAME -ErrorAction SilentlyContinue
+    }
 
     Write-Host "== Run $runId | type=$Type suite=$Suite browser=$BrowserName workers=$Workers ==" -ForegroundColor Cyan
     if ($filter) { Write-Host "   filter: $filter" -ForegroundColor DarkGray }
@@ -112,18 +169,18 @@ function Invoke-SingleBrowser {
     return [int]$exitCode
 }
 
-$browsers = if ($Browser -eq 'all') { @('chromium', 'firefox', 'webkit') } else { @($Browser) }
+$runs = Get-Runs
 
-# Clean Allure results once before the (possibly multi-browser) launch, then let every browser's
-# results accumulate into the one report. TestRun honours AUTOMATION_KEEP_ALLURE_RESULTS and does
-# not re-clean per launch, so a `-Browser all` run keeps chromium, firefox, and webkit results.
+# Clean Allure results once before the (possibly multi-run) launch, then let every run's results
+# accumulate into the one report. TestRun honours AUTOMATION_KEEP_ALLURE_RESULTS and does not
+# re-clean per launch, so a `-Browser all` run keeps chromium, firefox, and webkit results.
 $allureResults = Join-Path $repoRoot 'allure-results'
 if (Test-Path $allureResults) { Remove-Item -Recurse -Force $allureResults }
 $env:AUTOMATION_KEEP_ALLURE_RESULTS = '1'
 
 $overall = 0
-foreach ($b in $browsers) {
-    $code = Invoke-SingleBrowser -BrowserName $b
+foreach ($run in $runs) {
+    $code = Invoke-Run -BrowserName $run.Browser -TypeClause $run.TypeClause
     if ($code -ne 0) { $overall = $code }
 }
 

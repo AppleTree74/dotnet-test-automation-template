@@ -45,9 +45,12 @@ on:
 permissions:
   contents: read
 
-# Serialize runs so Pages deployment and history updates never race.
+# Serialize runs repository-wide so Pages deployment and the single durable history branch never
+# race. A constant group (not one keyed on github.ref) is deliberate: every run force-pushes the
+# same allure-history branch, so two dispatches from different branches must not update it
+# concurrently. cancel-in-progress stays false so an in-flight run finishes rather than being killed.
 concurrency:
-  group: test-and-report-${{ github.ref }}
+  group: test-and-report-allure-history
   cancel-in-progress: false
 
 jobs:
@@ -190,6 +193,9 @@ jobs:
         if: ${{ steps.guard.outputs.have_results == 'true' }}
         run: |
           npm ci
+          # Remove any pre-existing report so no stale root index.html survives generation. Hosted
+          # runners start clean; this keeps self-hosted runners correct too.
+          rm -rf allure-report
           npx allure generate allure-results
 
       - name: Persist durable history
@@ -249,8 +255,11 @@ jobs:
       - name: Reflect the original test result
         shell: bash
         run: |
-          if [ "${{ needs.test.outputs.failed }}" = "true" ]; then
-            echo "Tests failed; reporting ran but the run is marked failed."
+          # Evaluate both the job result and the test output. If the test job failed before the run
+          # step executed (checkout, restore, build, or Playwright install), `failed` is empty — the
+          # job result then catches it, so the verdict never prints a misleading "Tests passed."
+          if [ "${{ needs.test.result }}" != "success" ] || [ "${{ needs.test.outputs.failed }}" = "true" ]; then
+            echo "The test job did not complete successfully; reporting ran but the run is marked failed."
             exit 1
           fi
           echo "Tests passed."

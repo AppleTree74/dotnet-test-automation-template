@@ -26,8 +26,33 @@ values are supplied.
 | `Browser` | `BrowserOptions` | Base URL, default browser, headless, timeouts, video/HAR opt-in, `CapturePageHtml` (redacted page-HTML capture on failure; default on). |
 | `Api` | `ApiOptions` | Base URL, timeout, bearer token (secret). |
 | `SqlServer` | `SqlServerOptions` | Connection string (secret), command timeout, ReadOnly intent. |
-| `Artifacts` | `ArtifactOptions` | Artifact root and Allure results directory name. |
+| `Artifacts` | `ArtifactOptions` | Artifact root, Allure results directory name, and the report-attachment policy (below). |
 | `Redaction` | `RedactionOptions` | Secret field names and mask text. |
+
+## Evidence published to the report
+
+Failure evidence is captured under `artifacts/<run-id>/tests/<test-id>/` and is always available in
+full through the restricted CI workflow artifacts. Sanitized **text** evidence (current URL, console
+JSONL, bounded page HTML, API and SQL evidence, logs) passes through the central redactor and is
+always attached to the Allure report.
+
+Raw **binary** evidence cannot be centrally redacted, so whether each file is attached to the report
+— and therefore published to GitHub Pages — is policy-gated by `Artifacts` options:
+
+| Option | Default | File | Rationale |
+|---|---:|---|---|
+| `AttachScreenshotToReport` | `true` | `screenshot.png` | The most useful at-a-glance diagnostic; exposes only what was on screen. |
+| `AttachTraceToReport` | `false` | `trace.zip` | Contains full DOM snapshots, page sources, and network bodies that cannot be sanitized. |
+| `AttachHarToReport` | `false` | `network.har` | Raw request/response archive. |
+| `AttachVideoToReport` | `false` | `video.webm` | Full-session recording. |
+
+The default assumes **GitHub Pages is access-controlled to an internal audience**. Screenshots are
+published for that audience; the trace, HAR, and video stay out of the report by default and are
+retrieved from workflow artifacts for deep debugging. If Pages could ever be public — or the
+application renders sensitive data on screen — set `AttachScreenshotToReport` to `false` for a
+fully text-only report. To include the trace in the report for a trusted internal audience, set
+`AttachTraceToReport` to `true`. These flags control **attachment only**; capture is unchanged, so
+raw diagnostics remain in workflow artifacts either way.
 
 ## Where settings live
 

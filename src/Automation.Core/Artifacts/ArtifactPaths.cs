@@ -5,13 +5,14 @@ using Automation.Core.Identity;
 namespace Automation.Core.Artifacts;
 
 /// <summary>
-/// Resolves and creates the contractual artifact layout (guide section 7.2):
+/// Resolves and creates the contractual artifact layout (guide section 7.2). Note that
+/// <c>allure-results/</c> lives at the repository root, not under the run (see ADR 0001):
 /// <code>
 /// artifacts/&lt;run-id&gt;/
 ///   run-manifest.json
-///   allure-results/
 ///   test-results.trx
 ///   tests/&lt;test-id&gt;/...
+/// allure-results/
 /// </code>
 /// All per-test paths are verified to remain inside the run root, defeating traversal via a
 /// malformed id.

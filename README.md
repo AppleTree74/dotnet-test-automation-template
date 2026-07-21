@@ -20,7 +20,9 @@ OpenAI Codex, and Claude Code.
 ## Prerequisites
 
 - .NET SDK pinned in [`global.json`](global.json) (.NET 10).
-- Node.js (see [`.nvmrc`](.nvmrc)) for Allure Report 3.
+- Node.js (see [`.nvmrc`](.nvmrc)) for Allure Report 3. Use the pinned version (e.g. `nvm use`) and
+  install dependencies with `npm ci`; the Allure CLI is resolved from the local `node_modules`, not
+  a global install. CI provisions Node via `actions/setup-node` from `.nvmrc` and runs `npm ci`.
 - PowerShell 7+ (`pwsh`) for the scripts.
 
 ## Quick start
@@ -59,6 +61,7 @@ Test URL, API, and SQL — see [`docs/configuration.md`](docs/configuration.md).
 
 | Doc | Purpose |
 |---|---|
+| [`docs/AI_IMPLEMENTATION_GUIDE.md`](docs/AI_IMPLEMENTATION_GUIDE.md) | Design baseline: the requirements/design spec the framework is built against (source comments cite its section numbers). |
 | [`AGENTS.md`](AGENTS.md) | Canonical operational guide (Codex and compatible agents). |
 | [`CLAUDE.md`](CLAUDE.md) | Claude Code entry point. |
 | [`docs/architecture.md`](docs/architecture.md) | Projects, dependency rules, composition. |

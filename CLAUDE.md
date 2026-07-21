@@ -1,6 +1,6 @@
 # Claude Code repository entry point
 
-Read and follow `AGENTS.md` first. It is the canonical operational guide for this repository. Then read the relevant shared documents under `docs/`.
+Read and follow `AGENTS.md` first. It is the canonical operational guide for this repository. Then read the relevant shared documents under `docs/`. The requirements/design baseline is `docs/AI_IMPLEMENTATION_GUIDE.md`, whose numbered sections are cited throughout the source ("guide section X").
 
 ## Working contract
 

@@ -1,4 +1,5 @@
 using Automation.Core.Artifacts;
+using Automation.Core.Configuration;
 using Automation.Core.Identity;
 using Automation.Core.Logging;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,7 +83,10 @@ public abstract class AutomationTestBase
             Identity.FullyQualifiedName,
             TestContext.CurrentContext.Result.Outcome.Status);
 
-        AllureEvidence.AttachDirectory(TestArtifactDirectory, Logger);
+        // Attach evidence to the report, excluding raw binary files the attachment policy withholds
+        // from Pages (P1-01). Every captured file remains on disk / in CI workflow artifacts.
+        ArtifactOptions artifacts = Services.GetRequiredService<ArtifactOptions>();
+        AllureEvidence.AttachDirectory(TestArtifactDirectory, artifacts.ReportExcludedFileNames(), Logger);
 
         _logScope?.Dispose();
         _logScope = null;

@@ -16,11 +16,22 @@ public sealed record RunManifest
 
     public string? Runner { get; init; }
 
+    /// <summary>Selected browser, or <c>not-applicable</c> for a browser-free (API/Database) run.</summary>
     public string? Browser { get; init; }
 
     public string? Type { get; init; }
 
     public string? Suite { get; init; }
+
+    /// <summary>
+    /// How tests were selected: <c>category</c> (type/suite/tags) or <c>test-name</c> (a targeted
+    /// <c>-TestName</c> run, where <see cref="Type"/>/<see cref="Suite"/> reflect the launcher
+    /// defaults rather than the actual test's categories).
+    /// </summary>
+    public string SelectionMode { get; init; } = "category";
+
+    /// <summary>The requested test-name fragment for a <c>test-name</c> selection; otherwise null.</summary>
+    public string? TestName { get; init; }
 
     public int Workers { get; init; }
 
@@ -60,7 +71,7 @@ public static class RunManifestWriter
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public static RunManifest Build(RunContext run, ArtifactPaths paths, string? type, string? suite, string? browser, int workers, string result, DateTimeOffset? completedUtc = null)
+    public static RunManifest Build(RunContext run, ArtifactPaths paths, string? type, string? suite, string? browser, int workers, string result, DateTimeOffset? completedUtc = null, string selectionMode = "category", string? testName = null)
     {
         ArgumentNullException.ThrowIfNull(run);
         ArgumentNullException.ThrowIfNull(paths);
@@ -73,6 +84,8 @@ public static class RunManifestWriter
             Browser = browser,
             Type = type,
             Suite = suite,
+            SelectionMode = selectionMode,
+            TestName = testName,
             Workers = workers,
             StartedUtc = run.StartedUtc,
             CompletedUtc = completedUtc,

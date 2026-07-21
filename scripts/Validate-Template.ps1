@@ -25,7 +25,8 @@ $required = @(
     'AGENTS.md', 'CLAUDE.md', 'package.json', 'package-lock.json', 'allurerc.mjs',
     '.github/workflows/validate.yml', '.github/workflows/test-and-report.yml',
     'scripts/Invoke-Tests.ps1', 'scripts/Install-Playwright.ps1', 'scripts/Generate-Allure.ps1',
-    'docs/architecture.md', 'docs/configuration.md', 'docs/test-standards.md', 'docs/debugging.md'
+    'docs/architecture.md', 'docs/configuration.md', 'docs/test-standards.md', 'docs/debugging.md',
+    'docs/AI_IMPLEMENTATION_GUIDE.md'
 )
 foreach ($rel in $required) {
     if (-not (Test-Path (Join-Path $repoRoot $rel))) { Add-Error "Missing required file: $rel" }

@@ -36,6 +36,15 @@ try {
 
     New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot 'allure-history') | Out-Null
 
+    # Remove any previous report first. Allure writes into allure-report/ (with the awesome plugin
+    # under allure-report/awesome/); without this, a stale root index.html from an earlier run can
+    # survive and be served in place of the current report. CI runners normally start clean, so this
+    # primarily protects local and persistent self-hosted runs.
+    $reportDirectory = Join-Path $repoRoot 'allure-report'
+    if (Test-Path $reportDirectory) {
+        Remove-Item -Recurse -Force $reportDirectory
+    }
+
     Write-Host "Generating Allure Report 3 from '$ResultsDirectory'..." -ForegroundColor Cyan
     & npx allure generate $ResultsDirectory | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "allure generate failed." }
