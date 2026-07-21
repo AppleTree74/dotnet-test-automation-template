@@ -36,23 +36,35 @@ full through the restricted CI workflow artifacts. Sanitized **text** evidence (
 JSONL, bounded page HTML, API and SQL evidence, logs) passes through the central redactor and is
 always attached to the Allure report.
 
-Raw **binary** evidence cannot be centrally redacted, so whether each file is attached to the report
-— and therefore published to GitHub Pages — is policy-gated by `Artifacts` options:
+Raw **binary** evidence cannot be centrally redacted, so whether each kind is attached to the report
+— and therefore published to GitHub Pages — is policy-gated by `Artifacts` options. All default to
+**off**: no un-redactable binary is published unless you opt in. The decision is by **artifact type**
+(file extension), so a Playwright-named video file (`page@<id>.webm`) is gated just like the canonical
+`video.webm`.
 
-| Option | Default | File | Rationale |
+| Option | Default | Type | Rationale |
 |---|---:|---|---|
-| `AttachScreenshotToReport` | `true` | `screenshot.png` | The most useful at-a-glance diagnostic; exposes only what was on screen. |
-| `AttachTraceToReport` | `false` | `trace.zip` | Contains full DOM snapshots, page sources, and network bodies that cannot be sanitized. |
-| `AttachHarToReport` | `false` | `network.har` | Raw request/response archive. |
-| `AttachVideoToReport` | `false` | `video.webm` | Full-session recording. |
+| `AttachScreenshotToReport` | `false` | `.png` | Pixels can show tokens, credentials, or personal data and cannot be redacted. |
+| `AttachTraceToReport` | `false` | `.zip` | Full DOM snapshots, page sources, and network bodies that cannot be sanitized. |
+| `AttachHarToReport` | `false` | `.har` | Raw request/response archive. |
+| `AttachVideoToReport` | `false` | `.webm` | Full-session recording. |
 
-The default assumes **GitHub Pages is access-controlled to an internal audience**. Screenshots are
-published for that audience; the trace, HAR, and video stay out of the report by default and are
-retrieved from workflow artifacts for deep debugging. If Pages could ever be public — or the
-application renders sensitive data on screen — set `AttachScreenshotToReport` to `false` for a
-fully text-only report. To include the trace in the report for a trusted internal audience, set
-`AttachTraceToReport` to `true`. These flags control **attachment only**; capture is unchanged, so
-raw diagnostics remain in workflow artifacts either way.
+These flags control **attachment only**; capture is unchanged, so raw diagnostics always remain in
+the restricted workflow artifacts for interactive debugging. Enable one only after confirming Pages
+access control and the application's data classification — e.g. set `AttachScreenshotToReport=true`
+in a generated repository whose Pages is access-controlled and whose pages never render secrets.
+
+### Report result sanitization
+
+Attachment filtering does not cover the Allure **result JSON** itself. A Playwright/NUnit assertion
+failure records `statusDetails` (message and trace) that can quote DOM, ARIA snapshots, locators, and
+on-screen values; parameters, labels, and step names are free text too. Before the report is
+generated, `tools/AllureResultsSanitizer` redacts a **copy** of `allure-results/` (via the shared
+redactor) into `allure-results-sanitized/`, and the report and its durable history are generated from
+that copy. The raw results stay untouched for workflow diagnostics, and sanitization **fails closed** —
+a malformed result aborts publication rather than leaking. Do not place secrets in assertion messages,
+test names, Allure titles, parameters, labels, or step names; sanitization is defense in depth, not a
+license to embed them.
 
 ## Where settings live
 

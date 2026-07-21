@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Automation.Core.Artifacts;
 
 namespace Automation.Core.Configuration;
 
@@ -24,11 +23,13 @@ public sealed class ArtifactOptions
 
     /// <summary>
     /// Whether the failure screenshot is attached to the Allure report (and thus published to
-    /// GitHub Pages). On by default: a screenshot is the most useful at-a-glance diagnostic and only
-    /// exposes what was on screen. It cannot be centrally redacted, so turn this off for
-    /// applications that render sensitive data. See P1-01 and <c>docs/configuration.md</c>.
+    /// GitHub Pages). Off by default: image pixels cannot be redacted, and a page can render tokens,
+    /// credentials, or personal data. The screenshot is always captured to the test artifact
+    /// directory and remains in the restricted CI workflow artifacts; set this true only after
+    /// confirming Pages access control and data classification. See P1-01/P1-1 and
+    /// <c>docs/configuration.md</c>.
     /// </summary>
-    public bool AttachScreenshotToReport { get; init; } = true;
+    public bool AttachScreenshotToReport { get; init; }
 
     /// <summary>
     /// Whether the Playwright trace (<c>trace.zip</c>) is attached to the Allure report. Off by
@@ -45,18 +46,25 @@ public sealed class ArtifactOptions
     public bool AttachVideoToReport { get; init; }
 
     /// <summary>
-    /// Raw binary evidence file names that must NOT be attached to the Allure report under the
-    /// current policy. Sanitized text evidence (URL, console, page HTML, API/SQL evidence, logs) is
-    /// always attached; these binary files cannot be centrally redacted, so publishing them to Pages
-    /// is opt-in. Every captured file always remains in the restricted CI workflow artifacts.
+    /// Decides whether one captured evidence file may be attached to the Allure report (and thus
+    /// published to GitHub Pages). The decision is by <b>artifact type</b>, keyed on the file
+    /// extension, not an exact file name — Playwright owns the actual video file name
+    /// (<c>page@&lt;id&gt;.webm</c>, not the canonical <c>video.webm</c>), so an exact-name check
+    /// would fail open (P1-2). Raw binary evidence cannot be centrally redacted, so each kind is
+    /// gated by its flag; sanitized text evidence (URL, console, page HTML, API/SQL evidence, logs)
+    /// is always attached. Every captured file always remains in the restricted CI workflow
+    /// artifacts regardless of this decision.
     /// </summary>
-    public IReadOnlyCollection<string> ReportExcludedFileNames()
+    public bool ShouldAttachToReport(string fileName)
     {
-        var excluded = new List<string>();
-        if (!AttachScreenshotToReport) { excluded.Add(ArtifactNames.Screenshot); }
-        if (!AttachTraceToReport) { excluded.Add(ArtifactNames.Trace); }
-        if (!AttachHarToReport) { excluded.Add(ArtifactNames.Har); }
-        if (!AttachVideoToReport) { excluded.Add(ArtifactNames.Video); }
-        return excluded;
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        return Path.GetExtension(fileName).ToLowerInvariant() switch
+        {
+            ".png" => AttachScreenshotToReport,
+            ".zip" => AttachTraceToReport,
+            ".har" => AttachHarToReport,
+            ".webm" => AttachVideoToReport,
+            _ => true,
+        };
     }
 }

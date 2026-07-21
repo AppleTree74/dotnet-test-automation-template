@@ -18,4 +18,7 @@
     <Project Path="tests/Automation.UnitTests/Automation.UnitTests.csproj" />
     <Project Path="tests/Application.Tests/Application.Tests.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/AllureResultsSanitizer/AllureResultsSanitizer.csproj" />
+  </Folder>
 </Solution>

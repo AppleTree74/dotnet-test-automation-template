@@ -8,25 +8,46 @@ namespace Automation.UnitTests.Core;
 public sealed class ArtifactOptionsTests
 {
     [Test]
-    public void ReportExcludedFileNames_DefaultsAttachScreenshotButWithholdTraceHarVideo()
+    public void ShouldAttachToReport_DefaultsWithholdAllRawBinaryEvidence()
     {
-        // The template default (P1-01): screenshots are published to the report; the trace, HAR, and
-        // video are withheld because they cannot be centrally redacted.
+        // Template default (P1-01/P1-1): no un-redactable binary is published. Screenshots, traces,
+        // HAR, and video are all opt-in; only sanitized text evidence is attached by default.
         var options = new ArtifactOptions();
-
-        IReadOnlyCollection<string> excluded = options.ReportExcludedFileNames();
 
         Assert.Multiple(() =>
         {
-            Assert.That(excluded, Does.Not.Contain(ArtifactNames.Screenshot));
-            Assert.That(excluded, Does.Contain(ArtifactNames.Trace));
-            Assert.That(excluded, Does.Contain(ArtifactNames.Har));
-            Assert.That(excluded, Does.Contain(ArtifactNames.Video));
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Screenshot), Is.False);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Trace), Is.False);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Har), Is.False);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Video), Is.False);
         });
     }
 
     [Test]
-    public void ReportExcludedFileNames_AllAttachmentsEnabled_ExcludesNothing()
+    public void ShouldAttachToReport_AlwaysAttachesSanitizedTextEvidence()
+    {
+        // Sanitized text evidence is attached regardless of the binary policy.
+        var options = new ArtifactOptions
+        {
+            AttachScreenshotToReport = false,
+            AttachTraceToReport = false,
+            AttachHarToReport = false,
+            AttachVideoToReport = false,
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.PageHtml), Is.True);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.BrowserConsole), Is.True);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.ApiEvidence), Is.True);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.SqlEvidence), Is.True);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.TestLog), Is.True);
+            Assert.That(options.ShouldAttachToReport("current-url.txt"), Is.True);
+        });
+    }
+
+    [Test]
+    public void ShouldAttachToReport_EnabledFlags_AttachTheMatchingBinary()
     {
         var options = new ArtifactOptions
         {
@@ -36,52 +57,28 @@ public sealed class ArtifactOptionsTests
             AttachVideoToReport = true,
         };
 
-        Assert.That(options.ReportExcludedFileNames(), Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Screenshot), Is.True);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Trace), Is.True);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Har), Is.True);
+            Assert.That(options.ShouldAttachToReport(ArtifactNames.Video), Is.True);
+        });
     }
 
     [Test]
-    public void ReportExcludedFileNames_FullyConservative_ExcludesEveryBinaryEvidenceFile()
+    public void ShouldAttachToReport_VideoDecisionIsByExtension_NotCanonicalName()
     {
-        var options = new ArtifactOptions
-        {
-            AttachScreenshotToReport = false,
-            AttachTraceToReport = false,
-            AttachHarToReport = false,
-            AttachVideoToReport = false,
-        };
-
-        Assert.That(
-            options.ReportExcludedFileNames(),
-            Is.EquivalentTo(new[]
-            {
-                ArtifactNames.Screenshot,
-                ArtifactNames.Trace,
-                ArtifactNames.Har,
-                ArtifactNames.Video,
-            }));
-    }
-
-    [Test]
-    public void ReportExcludedFileNames_NeverWithholdsSanitizedTextEvidence()
-    {
-        // Sanitized text evidence is always attached regardless of the binary policy.
-        var options = new ArtifactOptions
-        {
-            AttachScreenshotToReport = false,
-            AttachTraceToReport = false,
-            AttachHarToReport = false,
-            AttachVideoToReport = false,
-        };
-
-        IReadOnlyCollection<string> excluded = options.ReportExcludedFileNames();
+        // Playwright names videos itself (page@<id>.webm); the policy must gate ANY .webm by the
+        // video flag, not only the canonical video.webm, so exclusion cannot fail open (P1-2).
+        var withheld = new ArtifactOptions { AttachVideoToReport = false };
+        var allowed = new ArtifactOptions { AttachVideoToReport = true };
 
         Assert.Multiple(() =>
         {
-            Assert.That(excluded, Does.Not.Contain(ArtifactNames.PageHtml));
-            Assert.That(excluded, Does.Not.Contain(ArtifactNames.BrowserConsole));
-            Assert.That(excluded, Does.Not.Contain(ArtifactNames.ApiEvidence));
-            Assert.That(excluded, Does.Not.Contain(ArtifactNames.SqlEvidence));
-            Assert.That(excluded, Does.Not.Contain(ArtifactNames.TestLog));
+            Assert.That(withheld.ShouldAttachToReport("page@1a2b3c4d.webm"), Is.False);
+            Assert.That(withheld.ShouldAttachToReport("VIDEO.WEBM"), Is.False, "extension match is case-insensitive");
+            Assert.That(allowed.ShouldAttachToReport("page@1a2b3c4d.webm"), Is.True);
         });
     }
 }

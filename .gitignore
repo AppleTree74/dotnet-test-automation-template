@@ -18,6 +18,7 @@ project.lock.json
 
 # Test / reporting output (top-level, anchored to the repo root)
 /allure-results/
+/allure-results-sanitized/
 /allure-report/
 /allure-history/
 TestResults/

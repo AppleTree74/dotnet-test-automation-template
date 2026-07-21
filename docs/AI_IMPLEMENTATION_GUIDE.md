@@ -179,7 +179,6 @@ Minimum context:
 artifacts/
 `-- <run-id>/
     |-- run-manifest.json
-    |-- allure-results/
     |-- test-results.trx
     `-- tests/
         `-- <test-id>/
@@ -190,9 +189,16 @@ artifacts/
             |-- browser-console.jsonl
             |-- api-evidence.json
             `-- sql-evidence.json
+allure-results/            # top-level, repository root (see below)
 ```
 
 Create only the artifacts relevant to the test. Heavy video or HAR capture is opt-in.
+
+> **Implemented exception (ADR 0001).** `allure-results/` lives at the **repository root**, not
+> nested under `artifacts/<run-id>/`. Allure's tooling and the section 14 durable-history flow assume
+> a single, stable, cleanable results directory, and the section 15.3 manifest example already uses a
+> top-level path. See [`docs/decisions/0001-artifact-and-allure-layout.md`](decisions/0001-artifact-and-allure-layout.md).
+> Everything else stays under `artifacts/<run-id>/`.
 
 ### 7.3 Redaction
 

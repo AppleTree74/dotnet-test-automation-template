@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Publication-time sanitizer for Allure results (P1-3). Reuses Automation.Core's redactor so the
+    report and history are generated from redacted input while raw results stay in workflow
+    artifacts. Invoked by scripts/Generate-Allure.ps1 and the test-and-report workflow.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AllureResultsSanitizer</RootNamespace>
+    <AssemblyName>AllureResultsSanitizer</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Automation.Core/Automation.Core.csproj" />
+  </ItemGroup>
+
+</Project>

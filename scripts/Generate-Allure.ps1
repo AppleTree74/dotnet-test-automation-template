@@ -36,6 +36,21 @@ try {
 
     New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot 'allure-history') | Out-Null
 
+    # Redact a publication copy of the results before generation (P1-3). The report and its history
+    # are built from the sanitized copy so free-text the attachment policy never sees — Allure
+    # statusDetails (Playwright/NUnit failure text quoting the DOM), parameters, labels, and step
+    # names — cannot carry secrets to Pages. The raw results stay untouched for workflow diagnostics.
+    # Sanitization fails closed: a parse error aborts here rather than publishing raw data.
+    $sanitizedDirectory = Join-Path $repoRoot 'allure-results-sanitized'
+    if (Test-Path $sanitizedDirectory) {
+        Remove-Item -Recurse -Force $sanitizedDirectory
+    }
+
+    Write-Host "Sanitizing Allure results for publication..." -ForegroundColor Cyan
+    $sanitizer = Join-Path $repoRoot 'tools/AllureResultsSanitizer/AllureResultsSanitizer.csproj'
+    & dotnet run --project $sanitizer -c Release -- (Join-Path $repoRoot $ResultsDirectory) $sanitizedDirectory | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "Allure results sanitization failed; report not generated." }
+
     # Remove any previous report first. Allure writes into allure-report/ (with the awesome plugin
     # under allure-report/awesome/); without this, a stale root index.html from an earlier run can
     # survive and be served in place of the current report. CI runners normally start clean, so this
@@ -45,8 +60,8 @@ try {
         Remove-Item -Recurse -Force $reportDirectory
     }
 
-    Write-Host "Generating Allure Report 3 from '$ResultsDirectory'..." -ForegroundColor Cyan
-    & npx allure generate $ResultsDirectory | Out-Host
+    Write-Host "Generating Allure Report 3 from the sanitized results..." -ForegroundColor Cyan
+    & npx allure generate $sanitizedDirectory | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "allure generate failed." }
 
     Write-Host "Report written to allure-report/; history updated at allure-history/history.jsonl." -ForegroundColor Green
