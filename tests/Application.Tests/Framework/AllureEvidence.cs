@@ -1,4 +1,5 @@
 using Allure.Net.Commons;
+using Automation.Core.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Tests.Framework;
@@ -11,15 +12,16 @@ namespace Application.Tests.Framework;
 public static class AllureEvidence
 {
     /// <summary>
-    /// Attaches evidence files from a test directory to the current Allure result, skipping any file
-    /// whose name is in <paramref name="excludedFileNames"/>. Raw binary evidence (screenshot, trace,
-    /// HAR, video) cannot be centrally redacted, so publishing it to the report/Pages is policy-gated
-    /// via <see cref="Automation.Core.Configuration.ArtifactOptions"/> (P1-01). Excluded files remain
-    /// on disk and in the restricted CI workflow artifacts.
+    /// Attaches evidence files from a test directory to the current Allure result, consulting
+    /// <paramref name="options"/> for each file. Raw binary evidence (screenshot, trace, HAR, video)
+    /// cannot be centrally redacted, so publishing it to the report/Pages is policy-gated by artifact
+    /// type via <see cref="ArtifactOptions.ShouldAttachToReport"/> (P1-01/P1-2). Withheld files remain
+    /// on disk and in the restricted CI workflow artifacts. Only files directly inside
+    /// <paramref name="directory"/> are considered.
     /// </summary>
-    public static void AttachDirectory(string directory, IReadOnlyCollection<string> excludedFileNames, ILogger logger)
+    public static void AttachDirectory(string directory, ArtifactOptions options, ILogger logger)
     {
-        ArgumentNullException.ThrowIfNull(excludedFileNames);
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
         {
@@ -29,7 +31,7 @@ public static class AllureEvidence
         foreach (string path in Directory.EnumerateFiles(directory))
         {
             string fileName = Path.GetFileName(path);
-            if (excludedFileNames.Any(excluded => string.Equals(excluded, fileName, StringComparison.OrdinalIgnoreCase)))
+            if (!options.ShouldAttachToReport(fileName))
             {
                 logger.LogInformation(
                     "Evidence file {File} is retained on disk but not attached to the report by policy.",

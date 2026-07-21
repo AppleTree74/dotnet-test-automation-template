@@ -121,7 +121,8 @@ Do not claim a fix without verification. If environment access, credentials, or 
 - Scheduled runs use Chromium only unless policy is explicitly changed.
 - Reporting and artifact collection run even after test failure, but the original test exit status remains authoritative.
 - Allure 3 HTML publishes to GitHub Pages and its single `history.jsonl` persists between runs.
-- Only sanitized text evidence is attached to the report unconditionally. Raw binary evidence that cannot be centrally redacted (trace, HAR, video) is withheld from the report by default; screenshots are attached by default on the assumption that Pages is access-controlled. This attachment policy is configurable via `Artifacts` options (see `docs/configuration.md`).
+- Only sanitized text evidence is attached to the report unconditionally. Raw binary evidence that cannot be centrally redacted (screenshot, trace, HAR, video) is withheld from the report by default and gated by artifact type in `Artifacts` options; opt in per generated repo only after confirming Pages access control (see `docs/configuration.md`).
+- The Allure result JSON is not covered by attachment filtering, so `tools/AllureResultsSanitizer` redacts a copy of `allure-results` (statusDetails, parameters, labels, step names) before the report/history are generated; it fails closed. Do not put secrets in assertion messages, test names, Allure titles, parameters, labels, or step names.
 - Raw diagnostics are workflow artifacts for interactive human/Codex/Claude diagnosis; CI does not send them to an external model.
 
 ## Completion checklist

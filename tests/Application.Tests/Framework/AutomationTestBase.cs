@@ -83,10 +83,10 @@ public abstract class AutomationTestBase
             Identity.FullyQualifiedName,
             TestContext.CurrentContext.Result.Outcome.Status);
 
-        // Attach evidence to the report, excluding raw binary files the attachment policy withholds
-        // from Pages (P1-01). Every captured file remains on disk / in CI workflow artifacts.
+        // Attach evidence to the report; the attachment policy withholds raw binary files from Pages
+        // by artifact type (P1-01/P1-2). Every captured file remains on disk / in CI workflow artifacts.
         ArtifactOptions artifacts = Services.GetRequiredService<ArtifactOptions>();
-        AllureEvidence.AttachDirectory(TestArtifactDirectory, artifacts.ReportExcludedFileNames(), Logger);
+        AllureEvidence.AttachDirectory(TestArtifactDirectory, artifacts, Logger);
 
         _logScope?.Dispose();
         _logScope = null;

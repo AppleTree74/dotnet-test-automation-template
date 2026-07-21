@@ -183,6 +183,20 @@ jobs:
             git show origin/allure-history:history.jsonl > allure-history/history.jsonl 2>/dev/null || true
           fi
 
+      - name: Set up .NET (from global.json)
+        if: ${{ steps.guard.outputs.have_results == 'true' }}
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Sanitize Allure results for publication
+        # Redact a publication copy before report generation (P1-3): Allure statusDetails, parameters,
+        # labels, and step names can quote on-screen secrets the attachment policy never inspects. The
+        # raw results remain in the restricted diagnostics artifact; only the sanitized copy is
+        # published. Fails closed, so a parse error stops publication instead of leaking.
+        if: ${{ steps.guard.outputs.have_results == 'true' }}
+        run: dotnet run --project tools/AllureResultsSanitizer/AllureResultsSanitizer.csproj -c Release -- allure-results allure-results-sanitized
+
       - name: Set up Node (from .nvmrc)
         if: ${{ steps.guard.outputs.have_results == 'true' }}
         uses: actions/setup-node@v4
@@ -196,7 +210,8 @@ jobs:
           # Remove any pre-existing report so no stale root index.html survives generation. Hosted
           # runners start clean; this keeps self-hosted runners correct too.
           rm -rf allure-report
-          npx allure generate allure-results
+          # Generate from the sanitized copy so no secret in result JSON reaches Pages or history.
+          npx allure generate allure-results-sanitized
 
       - name: Persist durable history
         if: ${{ steps.guard.outputs.have_results == 'true' }}

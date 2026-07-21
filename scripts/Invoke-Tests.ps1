@@ -95,9 +95,22 @@ function Get-TypeClause {
 function Get-Runs {
     if ($TestName) {
         # A targeted run selects by fully-qualified name; its type/suite are not category-derived.
-        # Browser matters only if the named test is UI/E2E, which is not known here, so keep the
-        # selected browser (never fan out to the whole matrix for a single test).
-        $browser = if ($Browser -eq 'all') { 'chromium' } else { $Browser }
+        if ($Browser -eq 'all') {
+            if ($Type -in @('UI', 'E2E')) {
+                # Explicit browser-using type: honor the matrix for the targeted test (P2-2).
+                return @(@('chromium', 'firefox', 'webkit') | ForEach-Object { @{ Browser = $_; TypeClause = '' } })
+            }
+            if ($Type -in @('API', 'Database')) {
+                # Browser is irrelevant to these; run once, browser-free.
+                return @(@{ Browser = $NotApplicableBrowser; TypeClause = '' })
+            }
+            # Type is All: the named test's type is unknown, so we cannot safely expand the matrix.
+            # Fail loudly instead of silently collapsing 'all' to Chromium (P2-2).
+            throw "Ambiguous selection: -TestName with -Browser all needs an explicit -Type so the browser matrix can be resolved. Use -Type UI or -Type E2E to run all three browsers, or -Type API/-Type Database for a browser-free test."
+        }
+
+        # A single explicit browser (or the default). For a browser-free type it is not applicable.
+        $browser = if ($Type -in @('API', 'Database')) { $NotApplicableBrowser } else { $Browser }
         return @(@{ Browser = $browser; TypeClause = '' })
     }
 

@@ -41,6 +41,15 @@ $priorCliHome = $env:DOTNET_CLI_HOME
 New-Item -ItemType Directory -Force -Path $cliHome | Out-Null
 $env:DOTNET_CLI_HOME = $cliHome
 
+# A fresh DOTNET_CLI_HOME otherwise triggers .NET first-run side effects on the host — notably an
+# ASP.NET Core HTTPS development certificate, plus the logo/telemetry priming (P2-1). Suppress them
+# so routine validation has no host-side effect beyond the temporary directory. These are process-
+# scoped and cleared with the environment when the script exits.
+$env:DOTNET_NOLOGO = 'true'
+$env:DOTNET_CLI_TELEMETRY_OPTOUT = 'true'
+$env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = 'true'
+$env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
+
 try {
     Invoke-Step 'Install template' { dotnet new install $repoRoot --force | Out-Host }
     Invoke-Step 'Generate solution' { dotnet new test-automation -n Generated.Product -o $generated | Out-Host }

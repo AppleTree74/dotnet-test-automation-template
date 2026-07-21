@@ -46,6 +46,19 @@ jobs:
         shell: pwsh
         run: pwsh ./scripts/Test-ExitContract.ps1
 
+      - name: Set up Node (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Restore npm (locked) and validate the Allure CLI
+        # validate.yml owns locked .NET and npm dependency restoration (guide section 13). npm ci
+        # fails on a package-lock.json mismatch or an unavailable pinned version; the CLI probe
+        # proves the pinned Allure 3 command surface is usable without secrets or a browser.
+        run: |
+          npm ci
+          npx allure --version
+
       - name: Validate template tokens and categories
         shell: pwsh
         run: pwsh ./scripts/Validate-Template.ps1
