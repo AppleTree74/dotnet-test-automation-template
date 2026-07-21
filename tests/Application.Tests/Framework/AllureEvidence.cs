@@ -10,8 +10,16 @@ namespace Application.Tests.Framework;
 /// </summary>
 public static class AllureEvidence
 {
-    public static void AttachDirectory(string directory, ILogger logger)
+    /// <summary>
+    /// Attaches evidence files from a test directory to the current Allure result, skipping any file
+    /// whose name is in <paramref name="excludedFileNames"/>. Raw binary evidence (screenshot, trace,
+    /// HAR, video) cannot be centrally redacted, so publishing it to the report/Pages is policy-gated
+    /// via <see cref="Automation.Core.Configuration.ArtifactOptions"/> (P1-01). Excluded files remain
+    /// on disk and in the restricted CI workflow artifacts.
+    /// </summary>
+    public static void AttachDirectory(string directory, IReadOnlyCollection<string> excludedFileNames, ILogger logger)
     {
+        ArgumentNullException.ThrowIfNull(excludedFileNames);
         ArgumentNullException.ThrowIfNull(logger);
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
         {
@@ -20,9 +28,18 @@ public static class AllureEvidence
 
         foreach (string path in Directory.EnumerateFiles(directory))
         {
+            string fileName = Path.GetFileName(path);
+            if (excludedFileNames.Any(excluded => string.Equals(excluded, fileName, StringComparison.OrdinalIgnoreCase)))
+            {
+                logger.LogInformation(
+                    "Evidence file {File} is retained on disk but not attached to the report by policy.",
+                    fileName);
+                continue;
+            }
+
             try
             {
-                AllureApi.AddAttachment(path, Path.GetFileName(path));
+                AllureApi.AddAttachment(path, fileName);
             }
             catch (Exception ex)
             {
@@ -30,7 +47,7 @@ public static class AllureEvidence
                 // exception type only (no message) so nothing sensitive is emitted.
                 logger.LogWarning(
                     "Failed to attach evidence file {File} to Allure ({Error}); it remains on disk.",
-                    Path.GetFileName(path),
+                    fileName,
                     ex.GetType().Name);
             }
         }
@@ -50,7 +67,11 @@ public static class AllureEvidence
 
         try
         {
-            AllureApi.AddTestParameter("browser", browser);
+            // Use the Parameter overload with an explicit string value. The object overload
+            // (AddTestParameter(string, object)) serializes the value through the JSON formatter,
+            // which renders a plain string as a quoted "chromium"; setting Parameter.value directly
+            // stores the bare token while still producing distinct per-browser history IDs (P3-01).
+            AllureApi.AddTestParameter(new Parameter { name = "browser", value = browser });
         }
         catch (Exception ex)
         {

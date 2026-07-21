@@ -13,7 +13,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <!-- Correctness gates required by AI_IMPLEMENTATION_GUIDE.md section 16. -->
+    <!-- Correctness gates required by docs/AI_IMPLEMENTATION_GUIDE.md section 16. -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <EnableNETAnalyzers>true</EnableNETAnalyzers>

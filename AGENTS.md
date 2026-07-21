@@ -4,7 +4,7 @@
 
 This repository is a reusable .NET 10 test automation template supporting Playwright browser tests, REST API tests through `HttpClient`, parameterized read-only Microsoft SQL Server verification, NUnit, Allure Report 3, and GitHub Actions.
 
-Read `docs/architecture.md`, `docs/configuration.md`, `docs/test-standards.md`, and `docs/debugging.md` before changing shared framework behavior.
+Read `docs/architecture.md`, `docs/configuration.md`, `docs/test-standards.md`, and `docs/debugging.md` before changing shared framework behavior. The design baseline these rules derive from is `docs/AI_IMPLEMENTATION_GUIDE.md`; source comments and ADRs cite its numbered sections (e.g. "guide section 7.2").
 
 ## Instruction precedence
 
@@ -121,6 +121,7 @@ Do not claim a fix without verification. If environment access, credentials, or 
 - Scheduled runs use Chromium only unless policy is explicitly changed.
 - Reporting and artifact collection run even after test failure, but the original test exit status remains authoritative.
 - Allure 3 HTML publishes to GitHub Pages and its single `history.jsonl` persists between runs.
+- Only sanitized text evidence is attached to the report unconditionally. Raw binary evidence that cannot be centrally redacted (trace, HAR, video) is withheld from the report by default; screenshots are attached by default on the assumption that Pages is access-controlled. This attachment policy is configurable via `Artifacts` options (see `docs/configuration.md`).
 - Raw diagnostics are workflow artifacts for interactive human/Codex/Claude diagnosis; CI does not send them to an external model.
 
 ## Completion checklist

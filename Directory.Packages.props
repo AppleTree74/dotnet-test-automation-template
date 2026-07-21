@@ -2,7 +2,7 @@
 
   <!--
     Central package management. Versions were resolved from nuget.org at scaffold time.
-    Revalidate before a template release (AI_IMPLEMENTATION_GUIDE.md section 16) and
+    Revalidate before a template release (docs/AI_IMPLEMENTATION_GUIDE.md section 16) and
     keep packages.lock.json committed so CI can run locked-mode restore.
   -->
 

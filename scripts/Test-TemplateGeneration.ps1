@@ -8,6 +8,10 @@
     and runs locked restore, Release build, format verification, framework unit tests, and the
     generated-repository validator against it. Guards against P1-01 and other
     template-generation regressions. Needs no browser or Test environment. Cleans up on exit.
+
+    The template is installed into an isolated `dotnet new` hive (a temporary DOTNET_CLI_HOME), so
+    validation never adds, replaces, or removes the developer's own `dotnet new` template
+    registrations. The NuGet global package cache is unaffected, so restore stays fast.
 #>
 [CmdletBinding()]
 param(
@@ -21,6 +25,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("tmpl-gen-" + [guid]::NewGuid().ToString('N'))
 $generated = Join-Path $work 'Generated.Product'
+$cliHome = Join-Path $work 'dotnet-cli-home'
 
 function Invoke-Step {
     param([string]$Name, [scriptblock]$Action)
@@ -28,6 +33,13 @@ function Invoke-Step {
     & $Action
     if ($LASTEXITCODE -ne 0) { throw "$Name failed (exit $LASTEXITCODE)." }
 }
+
+# Isolate the template engine store to a throwaway hive. DOTNET_CLI_HOME relocates the
+# `.templateengine` registrations; the shared NuGet package cache is unaffected. Save and restore
+# the caller's value so this script has no lasting effect on the environment.
+$priorCliHome = $env:DOTNET_CLI_HOME
+New-Item -ItemType Directory -Force -Path $cliHome | Out-Null
+$env:DOTNET_CLI_HOME = $cliHome
 
 try {
     Invoke-Step 'Install template' { dotnet new install $repoRoot --force | Out-Host }
@@ -52,6 +64,13 @@ try {
     Write-Host "Template generation validation passed." -ForegroundColor Green
 }
 finally {
+    # Uninstalling is belt-and-braces; deleting the isolated hive already removes the registration.
     dotnet new uninstall $repoRoot 2>$null | Out-Null
+    if ($null -eq $priorCliHome) {
+        Remove-Item Env:DOTNET_CLI_HOME -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:DOTNET_CLI_HOME = $priorCliHome
+    }
     Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
 }

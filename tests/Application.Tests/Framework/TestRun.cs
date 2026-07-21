@@ -96,18 +96,33 @@ public static class TestRun
     private static void WriteManifest()
     {
         string result = _total == 0 ? "incomplete" : _failures == 0 ? "passed" : "failed";
+        string? testName = Environment.GetEnvironmentVariable("AUTOMATION_TEST_NAME");
+        bool byTestName = !string.IsNullOrWhiteSpace(testName);
+
         RunManifest manifest = RunManifestWriter.Build(
             Run,
             Paths,
             type: Environment.GetEnvironmentVariable("AUTOMATION_TYPE") ?? "all",
             suite: Environment.GetEnvironmentVariable("AUTOMATION_SUITE") ?? "all",
-            browser: SelectedBrowser.ToString().ToLowerInvariant(),
+            browser: ManifestBrowserLabel(),
             workers: TestContextWorkers(),
             result: result,
-            completedUtc: DateTimeOffset.UtcNow);
+            completedUtc: DateTimeOffset.UtcNow,
+            selectionMode: byTestName ? "test-name" : "category",
+            testName: byTestName ? testName : null);
 
         RunManifestWriter.Write(Paths.RunManifestPath, manifest);
     }
+
+    /// <summary>
+    /// The browser to record in the manifest. A browser-free selection (API/Database, signalled by
+    /// an unparseable <c>AUTOMATION_BROWSER</c> such as <c>not-applicable</c>) records
+    /// <c>not-applicable</c> rather than a browser that was never launched (P2-04).
+    /// </summary>
+    private static string ManifestBrowserLabel() =>
+        BrowserKindParser.TryParse(Environment.GetEnvironmentVariable("AUTOMATION_BROWSER"), out BrowserKind kind)
+            ? kind.ToString().ToLowerInvariant()
+            : "not-applicable";
 
     private static int TestContextWorkers() =>
         int.TryParse(Environment.GetEnvironmentVariable("AUTOMATION_WORKERS"), out int workers) ? workers : 0;
