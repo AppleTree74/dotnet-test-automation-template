@@ -3,7 +3,6 @@ using Allure.NUnit.Attributes;
 using Application.Tests.Framework;
 using Automation.Browser;
 using Automation.Core.Artifacts;
-using Automation.Core.Configuration;
 using Automation.Core.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
@@ -12,13 +11,17 @@ using NUnit.Framework;
 namespace Application.Tests.UI;
 
 /// <summary>
-/// Security self-test for the evidence-publication boundary. It plants distinct fake secrets in the
-/// page URL, the browser console, and the DOM, runs the real <see cref="BrowserSession"/>
-/// failure-evidence pipeline, then asserts on every captured output:
+/// Security self-test for the live evidence-publication pipeline. It plants distinct fake secrets in
+/// the page URL, the browser console, and the DOM, runs the real <see cref="BrowserSession"/>
+/// failure-evidence pipeline, then asserts on the captured outputs:
 /// <list type="bullet">
-///   <item><description><b>Redacted (must exclude the secret):</b> current URL, browser console, and page HTML — the sanitized text evidence that is always attached to the report.</description></item>
-///   <item><description><b>Captured but un-redactable (withheld from the report by default):</b> screenshot, trace, HAR, and video. These cannot be centrally redacted, so the attachment policy — by artifact type — withholds them all from Pages under template defaults (P1-1), while raw copies remain in the restricted CI workflow artifacts.</description></item>
+///   <item><description><b>Redacted text evidence (must exclude the secret):</b> the captured current URL, browser console, and page HTML — the sanitized text evidence that is always attached to the report — carries none of the planted secrets.</description></item>
+///   <item><description><b>Un-redactable binaries are captured to disk:</b> screenshot and trace are written to the test artifact directory, so raw diagnostics remain available through the restricted CI workflow artifacts.</description></item>
 /// </list>
+/// The report-attachment <i>policy</i> for those binaries (defaults withhold them; opt-in flags attach
+/// the matching type; video gated by extension) is covered independently by <c>ArtifactOptionsTests</c>,
+/// so this test stays decoupled from the live DI configuration and remains valid whether or not a
+/// generated repo opts in.
 /// The other free text named in the reviews — the NUnit/Playwright assertion message and other
 /// Allure result-JSON fields (<c>statusDetails</c>, parameters, labels, step names) — is redacted by
 /// <see cref="Automation.Core.Reporting.AllureResultSanitizer"/> in a publication copy before report
@@ -98,28 +101,14 @@ public sealed class EvidenceRedactionMatrixTests : AutomationTestBase
             Assert.That(pageHtml, Does.Contain(Mask), "Page HTML was not redacted at all.");
         });
 
-        // Binary evidence is captured on disk (available through workflow artifacts)...
+        // Binary evidence is captured on disk (available through workflow artifacts). The
+        // report-attachment policy for these un-redactable binaries is covered by ArtifactOptionsTests.
         string screenshotPath = Path.Combine(TestArtifactDirectory, ArtifactNames.Screenshot);
         string tracePath = Path.Combine(TestArtifactDirectory, ArtifactNames.Trace);
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(screenshotPath), Is.True, "Screenshot was not captured.");
             Assert.That(File.Exists(tracePath), Is.True, "Trace was not captured for workflow artifacts.");
-        });
-
-        // ...but under template defaults the attachment policy withholds every un-redactable binary
-        // from the report — screenshot included (P1-1) — while attaching all sanitized text. The
-        // video decision is by extension, so a Playwright-named .webm cannot slip through (P1-2).
-        var artifacts = Services.GetRequiredService<ArtifactOptions>();
-        Assert.Multiple(() =>
-        {
-            Assert.That(artifacts.ShouldAttachToReport(ArtifactNames.Screenshot), Is.False, "Screenshot must not be published by default.");
-            Assert.That(artifacts.ShouldAttachToReport(ArtifactNames.Trace), Is.False);
-            Assert.That(artifacts.ShouldAttachToReport(ArtifactNames.Har), Is.False);
-            Assert.That(artifacts.ShouldAttachToReport("page@deadbeef.webm"), Is.False, "Playwright-named video must be withheld.");
-            Assert.That(artifacts.ShouldAttachToReport(CurrentUrlFile), Is.True);
-            Assert.That(artifacts.ShouldAttachToReport(ArtifactNames.PageHtml), Is.True);
-            Assert.That(artifacts.ShouldAttachToReport(ArtifactNames.BrowserConsole), Is.True);
         });
     }
 
