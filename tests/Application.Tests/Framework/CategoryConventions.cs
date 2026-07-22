@@ -1,5 +1,4 @@
 using Automation.Core.Identity;
-using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 
@@ -30,10 +29,14 @@ public static class CategoryConventions
         var categories = new List<string>();
         for (ITest? current = test; current is not null; current = current.Parent)
         {
-			if (current.Properties.ContainsKey(PropertyNames.Category))
-			{
-				categories.AddRange(current.Properties[PropertyNames.Category].Cast<string>());
-			}
+            // PropertyBag's indexer getter lazily Adds a missing key, which is not thread-safe:
+            // parallel tests walking into a shared ancestor race on that Add and one throws. Guard
+            // with ContainsKey so we only read when the key already exists (guide section 12 requires
+            // tests to run safely in parallel).
+            if (current.Properties.ContainsKey(PropertyNames.Category))
+            {
+                categories.AddRange(current.Properties[PropertyNames.Category].Cast<string>());
+            }
         }
 
         List<TestType> types = categories
