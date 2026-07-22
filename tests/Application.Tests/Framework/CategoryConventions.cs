@@ -30,10 +30,10 @@ public static class CategoryConventions
         var categories = new List<string>();
         for (ITest? current = test; current is not null; current = current.Parent)
         {
-            if (current.Properties[PropertyNames.Category] is { } values)
-            {
-                categories.AddRange(values.Cast<string>());
-            }
+			if (current.Properties.ContainsKey(PropertyNames.Category))
+			{
+				categories.AddRange(current.Properties[PropertyNames.Category].Cast<string>());
+			}
         }
 
         List<TestType> types = categories
